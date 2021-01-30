@@ -1,5 +1,5 @@
 import {createCanvas} from './canvas.js';
-import {euclideanDist, rand} from './util.js';
+import {distance, rand} from './util.js';
 
 // reuse these across renders to reduce garbage collection time
 let pixelsArray, unsetId;
@@ -69,7 +69,7 @@ function calculateAndRenderPixels(tiles, canvas) {
   if (pixelsArray === undefined || pixelsArray.length !== width * height ||
       (tiles.length >= 0xff && pixelsArray.BYTES_PER_ELEMENT === 1)) {
     pixelsArray = tiles.length < 0xff ? new Uint8Array(width * height) :
-                                   new Uint16Array(width * height);
+                                        new Uint16Array(width * height);
   }
   unsetId = tiles.length < 0xff ? 0xff : 0xffff;
   const pixels = pixelsArray.fill(unsetId);
@@ -240,7 +240,7 @@ function findClosestTile(x, y, tiles) {
   let closestTile;
   let minDist = Infinity;
   for (const tile of tiles) {
-    const dist = euclideanDist(x, y, tile.x, tile.y);
+    const dist = distance(x, y, tile.x, tile.y);
     if (dist < minDist) {
       minDist = dist;
       closestTile = tile;
