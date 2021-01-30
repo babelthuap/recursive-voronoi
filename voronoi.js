@@ -128,10 +128,6 @@ function renderRecursive(state, {minX, minY, maxX, maxY}, recolor = false) {
     for (let y = minY; y < maxY; ++y) {
       const rowOffset = canvas.width * y;
       canvas.setRowHorizontal(minX + rowOffset, maxX + rowOffset, color);
-      for (let pixelIndex = minX + rowOffset; pixelIndex < maxX + rowOffset;
-           ++pixelIndex) {
-        pixels[pixelIndex] = tileIndex;
-      }
     }
     return;
   }
