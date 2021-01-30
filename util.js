@@ -42,7 +42,7 @@ export const distance = (() => {
         return dx + dy;
       };
     default:
-      if (metric > 1) {
+      if (metric > 0) {
         // generalized distance: dx^m + dy^m
         return (x1, y1, x2, y2) => {
           const dx = Math.abs(x1 - x2);
@@ -55,3 +55,56 @@ export const distance = (() => {
       }
   }
 })();
+
+/**
+ * sorts a lattice of points by their distance from the origin, breaking ties by
+ * comparing polar angles. the output array is of the form [x0, y0, x1, y1, ...]
+ */
+export const sortLattice = (radius) => {
+  console.time('sort lattice');
+
+  if (radius > 127) {
+    radius = 127;
+  }
+  const maxDistance = distance(0, 0, 0, radius);
+  const points = [];
+  for (let x = -radius; x <= radius; x++) {
+    for (let y = -radius; y <= radius; y++) {
+      const d = distance(0, 0, x, y);
+      if (d < maxDistance) {
+        points.push({x, y, d, q: quadrant(x, y)});
+      }
+    }
+  }
+
+  const sortedPoints = points.sort(compare);
+  const sortedLatticeFlat = new Int8Array(sortedPoints.length << 1);
+  for (let i = 0; i < sortedPoints.length; ++i) {
+    const {x, y} = sortedPoints[i];
+    sortedLatticeFlat[i << 1] = x;
+    sortedLatticeFlat[(i << 1) + 1] = y;
+  }
+
+  function quadrant(x, y) {
+    if (x > 0) {
+      return y < 0 ? 4 : 1;
+    } else {
+      return y > 0 ? 2 : 3;
+    }
+  }
+
+  function compare(A, B) {
+    if (A.d === B.d) {
+      if (A.q === B.q) {
+        return A.y * B.x - B.y * A.x;
+      } else {
+        return A.q - B.q;
+      }
+    } else {
+      return A.d - B.d;
+    }
+  }
+
+  console.timeEnd('sort lattice');
+  return sortedLatticeFlat;
+};

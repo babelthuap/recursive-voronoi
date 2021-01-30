@@ -91,7 +91,12 @@ function calculateAndRenderPixels(tiles, canvas) {
   unsetId = tiles.length < 0xff ? 0xff : 0xffff;
   const pixels = pixelsArray.fill(unsetId);
 
-  // TODO: expanding circles
+  // seed pixels array by marking each capitol; this helps when numTiles is
+  // extremely large
+  for (let tileIndex = 0; tileIndex < tiles.length; ++tileIndex) {
+    const tile = tiles[tileIndex];
+    pixels[tile.x + width * tile.y] = tileIndex;
+  }
 
   // Divide and conquer!
   const state = {allTiles: tiles, tilesSubset: tiles, canvas, pixels};
