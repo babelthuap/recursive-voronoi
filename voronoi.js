@@ -79,6 +79,11 @@ function calculateAndRenderPixels(tiles, canvas) {
   // Divide and conquer!
   const state = {allTiles: tiles, tiles, canvas, pixels};
   renderRecursive(state, {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
+
+  // fill in the top right pixel, which we missed by being parsimonious in the
+  // getBoundaryTiles* functions
+  calculatePixel(width - 1, 0, width - 1, state);
+
   console.timeEnd('calculateAndRenderPixels');
   return pixels;
 }
@@ -212,7 +217,8 @@ function getBoundaryTilesVertical(
 function getBoundaryTilesHorizontal(
     y, minX, maxX, state, boundaryTiles = new Set()) {
   if (y === 0) {
-    // don't do outermost top boundary
+    // don't do outermost top boundary - note that we will miss the top right
+    // pixel, so we fill that in separately
     return;
   }
   const {allTiles, canvas, pixels} = state;
