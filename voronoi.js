@@ -43,6 +43,8 @@ function placeTiles(numTiles, width, height) {
   console.time('placeTiles');
   const tiles = new Array(numTiles);
   const capitals = new Set();
+  const randColors =
+      crypto.getRandomValues(new Uint8ClampedArray(3 * numTiles));
   for (let i = 0; i < numTiles; ++i) {
     let x = rand(width);
     let y = rand(height);
@@ -53,7 +55,7 @@ function placeTiles(numTiles, width, height) {
       pixelIndex = x + width * y;
     }
     capitals.add(pixelIndex);
-    const color = Uint8ClampedArray.of(rand(256), rand(256), rand(256));
+    const color = randColors.subarray(3 * i, 3 * (i + 1));
     tiles[i] = {i, x, y, color};
   }
   console.timeEnd('placeTiles');
