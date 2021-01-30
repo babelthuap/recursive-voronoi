@@ -77,10 +77,8 @@ function calculateAndRenderPixels(tiles, canvas) {
   // TODO: expanding circles
 
   // Divide and conquer!
-  const state = {tiles, canvas, pixels};
-  renderRecursive(
-      /* allTiles= */ tiles, state,
-      {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
+  const state = {allTiles: tiles, tiles, canvas, pixels};
+  renderRecursive(state, {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
   console.timeEnd('calculateAndRenderPixels');
   return pixels;
 }
@@ -100,8 +98,8 @@ const MIN_SIZE = 16;
  * We stop recursing once the box contains only one color, or the box is smaller
  * than MIN_SIZE (determined empirically).
  */
-function renderRecursive(allTiles, state, {minX, minY, maxX, maxY}) {
-  const {tiles, canvas, pixels} = state;
+function renderRecursive(state, {minX, minY, maxX, maxY}) {
+  const {allTiles, tiles, canvas, pixels} = state;
   const boxWidth = maxX - minX + 1;
   const boxHeight = maxY - minY + 1;
 
@@ -113,7 +111,7 @@ function renderRecursive(allTiles, state, {minX, minY, maxX, maxY}) {
     // filled in already (see the getBoundaryTiles* functions)
     for (let y = minY; y < maxY; ++y) {
       const rowOffset = canvas.width * y;
-      canvas.setRow(minX + rowOffset, maxX + rowOffset, color);
+      canvas.setRowHorizontal(minX + rowOffset, maxX + rowOffset, color);
       for (let pixelIndex = minX + rowOffset; pixelIndex < maxX + rowOffset;
            ++pixelIndex) {
         pixels[pixelIndex] = tileIndex;
@@ -181,8 +179,8 @@ function renderRecursive(allTiles, state, {minX, minY, maxX, maxY}) {
     tiles2 = [...bottomHalfTiles].map(i => allTiles[i]);
   }
 
-  renderRecursive(allTiles, {tiles: tiles1, canvas, pixels}, sub1);
-  renderRecursive(allTiles, {tiles: tiles2, canvas, pixels}, sub2);
+  renderRecursive({allTiles, tiles: tiles1, canvas, pixels}, sub1);
+  renderRecursive({allTiles, tiles: tiles2, canvas, pixels}, sub2);
 }
 
 /**
@@ -211,18 +209,51 @@ function getBoundaryTilesVertical(
  * Adds to `boundaryTiles` the tileIndexes of all tiles that have at least one
  * pixel on the specified horizontal line. Colors in previously unknown pixels.
  */
-// TODO: binary search
 function getBoundaryTilesHorizontal(
     y, minX, maxX, state, boundaryTiles = new Set()) {
   if (y === 0) {
     // don't do outermost top boundary
     return;
   }
-  const rowOffset = state.canvas.width * y;
-  for (let x = minX; x <= maxX; ++x) {
-    const pixelIndex = x + rowOffset;
-    const tileIndex = calculatePixel(x, y, pixelIndex, state);
-    boundaryTiles.add(tileIndex);
+  const {allTiles, canvas, pixels} = state;
+  const rowOffset = canvas.width * y;
+  let left = minX;
+
+  while (left <= maxX) {
+    const leftTileIndex = calculatePixel(left, y, left + rowOffset, state);
+    boundaryTiles.add(leftTileIndex);
+
+    // fill in un-colored pixels: starting at left, search for the border with
+    // next color in this row, then fill the pixels in between
+    let right = maxX;
+    let rightPixelIndex = right + rowOffset;
+    if (calculatePixel(right, y, rightPixelIndex, state) !== leftTileIndex) {
+      let step = Math.max((right - left) >> 1, 1);
+      do {
+        if (pixels[rightPixelIndex] === leftTileIndex) {
+          right += step;
+        } else {
+          right -= step;
+        }
+        rightPixelIndex = right + rowOffset;
+        if (step > 1) {
+          step >>= 1;
+        }
+      } while (calculatePixel(right, y, rightPixelIndex, state) !==
+                   leftTileIndex ||
+               calculatePixel(right + 1, y, rightPixelIndex + 1, state) ===
+                   leftTileIndex);
+    }
+
+    // fill line of same-color pixels
+    const color = allTiles[leftTileIndex].color;
+    for (let pixelIndex = left + rowOffset; pixelIndex <= right + rowOffset;
+         ++pixelIndex) {
+      canvas.setPixel(pixelIndex, color);
+      pixels[pixelIndex] = leftTileIndex;
+    }
+
+    left = right + 1;
   }
   return boundaryTiles;
 }
