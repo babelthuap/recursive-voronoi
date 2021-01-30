@@ -15,6 +15,8 @@ export function drawRandomVoronoiDiagram(
   const canvas = createCanvas(width, height);
   const pixels = calculateAndRenderPixels(tiles, canvas);
 
+  // TODO: antialias
+
   canvas.repaint();
   canvas.attachToDom(container);
 
@@ -31,9 +33,8 @@ export function recolor({tiles, canvas, pixels}) {
     tile.color[2] = rand(256);
   }
   renderRecursive(
-      {allTiles: tiles, tiles, canvas, pixels},
-      {minX: 0, minY: 0, maxX: canvas.width - 1, maxY: canvas.height - 1},
-      /* recolor= */ true);
+      {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
+      {minX: 0, minY: 0, maxX: canvas.width - 1, maxY: canvas.height - 1});
   canvas.repaint();
   console.timeEnd('recolor');
 }
@@ -93,7 +94,7 @@ function calculateAndRenderPixels(tiles, canvas) {
   // TODO: expanding circles
 
   // Divide and conquer!
-  const state = {allTiles: tiles, tiles, canvas, pixels};
+  const state = {allTiles: tiles, tilesSubset: tiles, canvas, pixels};
   renderRecursive(state, {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
   console.timeEnd('calculateAndRenderPixels');
   return pixels;
@@ -114,15 +115,15 @@ const MIN_SIZE = 16;
  * We stop recursing once the box contains only one color, or the box is smaller
  * than MIN_SIZE (determined empirically).
  */
-function renderRecursive(state, {minX, minY, maxX, maxY}, recolor = false) {
-  const {allTiles, tiles, canvas, pixels} = state;
+function renderRecursive(state, {minX, minY, maxX, maxY}) {
+  const {allTiles, tilesSubset, canvas, pixels} = state;
   const boxWidth = maxX - minX + 1;
   const boxHeight = maxY - minY + 1;
 
-  if (tiles.length === 1) {
+  if (tilesSubset.length === 1) {
     // this box is a solid color! we can stop recursing
-    const color = tiles[0].color;
-    const tileIndex = tiles[0].i;
+    const color = tilesSubset[0].color;
+    const tileIndex = tilesSubset[0].i;
     for (let y = minY; y < maxY; ++y) {
       const rowOffset = canvas.width * y;
       canvas.setRowHorizontal(minX + rowOffset, maxX + rowOffset, color);
@@ -132,29 +133,47 @@ function renderRecursive(state, {minX, minY, maxX, maxY}, recolor = false) {
 
   if (boxWidth < MIN_SIZE || boxHeight < MIN_SIZE) {
     // fill in box; stop recursing
-    if (recolor) {
-      // pixels already known, just need to color
-      for (let y = minY; y < maxY; ++y) {
-        const rowOffset = canvas.width * y;
-        for (let x = minX; x <= maxX; ++x) {
-          const pixelIndex = x + rowOffset;
-          canvas.setPixel(pixelIndex, allTiles[pixels[pixelIndex]].color);
+    for (let y = minY; y < maxY; ++y) {
+      const rowOffset = canvas.width * y;
+      let left = minX;
+
+      // fill in un-colored pixels: starting at left, search for the border with
+      // next color in this row, then fill the pixels in between
+      while (left < maxX) {
+        const leftPixelIndex = left + rowOffset;
+        const leftTileIndex = calculatePixel(left, y, leftPixelIndex, state);
+        let right = maxX;
+        let rightPixelIndex = right + rowOffset;
+        if (calculatePixel(right, y, rightPixelIndex, state) !==
+            leftTileIndex) {
+          let step = Math.max((right - left) >> 1, 1);
+          do {
+            if (pixels[rightPixelIndex] === leftTileIndex) {
+              right += step;
+            } else {
+              right -= step;
+            }
+            rightPixelIndex = right + rowOffset;
+            if (step > 1) {
+              step >>= 1;
+            }
+          } while (calculatePixel(right, y, rightPixelIndex, state) !==
+                       leftTileIndex ||
+                   calculatePixel(right + 1, y, rightPixelIndex + 1, state) ===
+                       leftTileIndex);
         }
-      }
-    } else {
-      // pixels unknown; need to calculate
-      for (let y = minY; y < maxY; ++y) {
-        const rowOffset = canvas.width * y;
-        for (let x = minX; x <= maxX; ++x) {
-          const pixelIndex = x + rowOffset;
-          calculatePixel(x, y, pixelIndex, state);
-        }
+
+        // fill line of same-color pixels
+        const color = allTiles[leftTileIndex].color;
+        canvas.setRowHorizontal(leftPixelIndex, rightPixelIndex, color);
+
+        left = right + 1;
       }
     }
     return;
   }
 
-  let sub1, sub2, tiles1, tiles2;
+  let sub1, sub2, tilesSubset1, tilesSubset2;
   if (boxWidth > boxHeight) {
     // CUT VERTICALLY
     const middleX = (minX + maxX) >> 1;
@@ -164,19 +183,21 @@ function renderRecursive(state, {minX, minY, maxX, maxY}, recolor = false) {
     const midBoundary =
         [...getBoundaryTilesVertical(middleX, minY, maxY, state)];
     // calculate boundary tiles for left half
-    const leftHalfTiles = new Set(midBoundary);
-    getBoundaryTilesVertical(minX, minY, maxY, state, leftHalfTiles);
-    getBoundaryTilesHorizontal(minY, minX, middleX, state, leftHalfTiles);
-    getBoundaryTilesHorizontal(maxY, minX, middleX, state, leftHalfTiles);
-    addTilesFromBox(tiles, leftHalfTiles, sub1);
-    tiles1 = [...leftHalfTiles].map(i => allTiles[i]);
+    const leftHalfTileIndexes = new Set(midBoundary);
+    getBoundaryTilesVertical(minX, minY, maxY, state, leftHalfTileIndexes);
+    getBoundaryTilesHorizontal(minY, minX, middleX, state, leftHalfTileIndexes);
+    getBoundaryTilesHorizontal(maxY, minX, middleX, state, leftHalfTileIndexes);
+    addTilesFromBox(tilesSubset, leftHalfTileIndexes, sub1);
+    tilesSubset1 = [...leftHalfTileIndexes].map(i => allTiles[i]);
     // calculate boundary tiles for right half
-    const rightHalfTiles = new Set(midBoundary);
-    getBoundaryTilesVertical(maxX, minY, maxY, state, rightHalfTiles);
-    getBoundaryTilesHorizontal(minY, middleX, maxX, state, rightHalfTiles);
-    getBoundaryTilesHorizontal(maxY, middleX, maxX, state, rightHalfTiles);
-    addTilesFromBox(tiles, rightHalfTiles, sub2);
-    tiles2 = [...rightHalfTiles].map(i => allTiles[i]);
+    const rightHalfTileIndexes = new Set(midBoundary);
+    getBoundaryTilesVertical(maxX, minY, maxY, state, rightHalfTileIndexes);
+    getBoundaryTilesHorizontal(
+        minY, middleX, maxX, state, rightHalfTileIndexes);
+    getBoundaryTilesHorizontal(
+        maxY, middleX, maxX, state, rightHalfTileIndexes);
+    addTilesFromBox(tilesSubset, rightHalfTileIndexes, sub2);
+    tilesSubset2 = [...rightHalfTileIndexes].map(i => allTiles[i]);
   } else {
     // CUT HORIZONTALLY
     const middleY = (minY + maxY) >> 1;
@@ -186,23 +207,23 @@ function renderRecursive(state, {minX, minY, maxX, maxY}, recolor = false) {
     const midBoundary =
         [...getBoundaryTilesHorizontal(middleY, minX, maxX, state)];
     // calculate boundary tiles for top half
-    const topHalfTiles = new Set(midBoundary);
-    getBoundaryTilesHorizontal(minY, minX, maxX, state, topHalfTiles);
-    getBoundaryTilesVertical(minX, minY, middleY, state, topHalfTiles);
-    getBoundaryTilesVertical(maxX, minY, middleY, state, topHalfTiles);
-    addTilesFromBox(tiles, topHalfTiles, sub1);
-    tiles1 = [...topHalfTiles].map(i => allTiles[i]);
+    const topHalfTileIndexes = new Set(midBoundary);
+    getBoundaryTilesHorizontal(minY, minX, maxX, state, topHalfTileIndexes);
+    getBoundaryTilesVertical(minX, minY, middleY, state, topHalfTileIndexes);
+    getBoundaryTilesVertical(maxX, minY, middleY, state, topHalfTileIndexes);
+    addTilesFromBox(tilesSubset, topHalfTileIndexes, sub1);
+    tilesSubset1 = [...topHalfTileIndexes].map(i => allTiles[i]);
     // calculate boundary tiles for bottom half
-    const bottomHalfTiles = new Set(midBoundary);
-    getBoundaryTilesHorizontal(maxY, minX, maxX, state, bottomHalfTiles);
-    getBoundaryTilesVertical(minX, middleY, maxY, state, bottomHalfTiles);
-    getBoundaryTilesVertical(maxX, middleY, maxY, state, bottomHalfTiles);
-    addTilesFromBox(tiles, bottomHalfTiles, sub2);
-    tiles2 = [...bottomHalfTiles].map(i => allTiles[i]);
+    const bottomHalfTileIndexes = new Set(midBoundary);
+    getBoundaryTilesHorizontal(maxY, minX, maxX, state, bottomHalfTileIndexes);
+    getBoundaryTilesVertical(minX, middleY, maxY, state, bottomHalfTileIndexes);
+    getBoundaryTilesVertical(maxX, middleY, maxY, state, bottomHalfTileIndexes);
+    addTilesFromBox(tilesSubset, bottomHalfTileIndexes, sub2);
+    tilesSubset2 = [...bottomHalfTileIndexes].map(i => allTiles[i]);
   }
 
-  renderRecursive({allTiles, tiles: tiles1, canvas, pixels}, sub1, recolor);
-  renderRecursive({allTiles, tiles: tiles2, canvas, pixels}, sub2, recolor);
+  renderRecursive({allTiles, tilesSubset: tilesSubset1, canvas, pixels}, sub1);
+  renderRecursive({allTiles, tilesSubset: tilesSubset2, canvas, pixels}, sub2);
 }
 
 /**
@@ -303,14 +324,14 @@ function getBoundaryTilesHorizontal(
 }
 
 /**
- * Adds to `tileSet` the tileIndexes from the subset of `tiles` whose capitals
- * are inside the given bounding box.
+ * Adds to `tileIndexSet` the tileIndexes from the subset of `tiles` whose
+ * capitals are inside the given bounding box.
  */
-function addTilesFromBox(tiles, tileSet, {minX, minY, maxX, maxY}) {
+function addTilesFromBox(tiles, tileIndexSet, {minX, minY, maxX, maxY}) {
   // TODO: store capitals in a tree for faster retrieval
   for (const tile of tiles) {
     if (minX < tile.x && tile.x < maxX && minY < tile.y && tile.y < maxY) {
-      tileSet.add(tile.i);
+      tileIndexSet.add(tile.i);
     }
   }
 }
@@ -319,10 +340,10 @@ function addTilesFromBox(tiles, tileSet, {minX, minY, maxX, maxY}) {
  * Looks up or calculates (& stores) the pixel-to-tile mapping for a pixel.
  * Returns the tileIndex of the closest tile.
  */
-function calculatePixel(x, y, pixelIndex, {tiles, canvas, pixels}) {
+function calculatePixel(x, y, pixelIndex, {tilesSubset, canvas, pixels}) {
   let tileIndex = pixels[pixelIndex];
   if (tileIndex === unsetId) {
-    const tile = findClosestTile(x, y, tiles);
+    const tile = findClosestTile(x, y, tilesSubset);
     canvas.setPixel(pixelIndex, tile.color);
     pixels[pixelIndex] = tile.i;
     return tile.i;
