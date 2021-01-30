@@ -1,5 +1,8 @@
+import {createCanvas} from './canvas.js';
+import {euclideanDist, rand} from './util.js';
+
 // reuse these across renders to reduce garbage collection time
-let canvas, pixels, unsetId;
+let pixelsArray, unsetId;
 
 /** Draws a random Voronoi diagram. */
 export function drawRandomVoronoiDiagram(
@@ -54,11 +57,6 @@ function placeTiles(numTiles, width, height) {
   return tiles;
 }
 
-/** Returns a random integer in [0, n) */
-function rand(n) {
-  return Math.floor(Math.random() * n);
-}
-
 /**
  * Assigns a tile to every pixel, creating a map from pixelIndex to tileIndex,
  * while simultaneously coloring in those pixels.
@@ -68,13 +66,16 @@ function calculateAndRenderPixels(tiles, canvas) {
   const width = canvas.width;
   const height = canvas.height;
   // Reset the pixels array
-  if (pixels === undefined || pixels.length !== width * height ||
-      (tiles.length >= 0xff && pixels.BYTES_PER_ELEMENT === 1)) {
-    pixels = tiles.length < 0xff ? new Uint8Array(width * height) :
+  if (pixelsArray === undefined || pixelsArray.length !== width * height ||
+      (tiles.length >= 0xff && pixelsArray.BYTES_PER_ELEMENT === 1)) {
+    pixelsArray = tiles.length < 0xff ? new Uint8Array(width * height) :
                                    new Uint16Array(width * height);
   }
   unsetId = tiles.length < 0xff ? 0xff : 0xffff;
-  pixels.fill(unsetId);
+  const pixels = pixelsArray.fill(unsetId);
+
+  // TODO: expanding circles
+
   // Divide and conquer!
   const state = {tiles, canvas, pixels};
   renderRecursive(
@@ -85,8 +86,11 @@ function calculateAndRenderPixels(tiles, canvas) {
 }
 
 // TODO: set this based on numTiles
-const MIN_SIZE = 64;
+const MIN_SIZE = 16;
 
+/**
+ *
+ */
 function renderRecursive(allTiles, state, {minX, minY, maxX, maxY}) {
   const {tiles, canvas, pixels} = state;
   const boxWidth = maxX - minX + 1;
@@ -118,78 +122,96 @@ function renderRecursive(allTiles, state, {minX, minY, maxX, maxY}) {
     return;
   }
 
+  // TODO: don't traverse outer boundary at top level
   let sub1, sub2, tiles1, tiles2;
   if (boxWidth > boxHeight) {
     // CUT VERTICALLY
     const middleX = (minX + maxX) >> 1;
     sub1 = {minX: minX, minY: minY, maxX: middleX, maxY: maxY};  // left half
     sub2 = {minX: middleX, minY: minY, maxX: maxX, maxY: maxY};  // right half
-    // calculate middle border tiles
-    const midBorder = [...getBorderTilesVertical(middleX, minY, maxY, state)];
-    // calculate borders tiles for left half
-    const leftHalfTiles = new Set(midBorder);
-    getBorderTilesVertical(minX, minY, maxY, state, leftHalfTiles);
-    getBorderTilesHorizontal(minY, minX, middleX, state, leftHalfTiles);
-    getBorderTilesHorizontal(maxY, minX, middleX, state, leftHalfTiles);
+    // calculate middle boundary tiles
+    const midBoundary =
+        [...getBoundaryTilesVertical(middleX, minY, maxY, state)];
+    // calculate boundary tiles for left half
+    const leftHalfTiles = new Set(midBoundary);
+    getBoundaryTilesVertical(minX, minY, maxY, state, leftHalfTiles);
+    getBoundaryTilesHorizontal(minY, minX, middleX, state, leftHalfTiles);
+    getBoundaryTilesHorizontal(maxY, minX, middleX, state, leftHalfTiles);
     addTilesFromBox(tiles, leftHalfTiles, sub1);
     tiles1 = [...leftHalfTiles].map(i => allTiles[i]);
-    // calculate borders tiles for right half
-    const rightHalfTiles = new Set(midBorder);
-    getBorderTilesVertical(maxX, minY, maxY, state, rightHalfTiles);
-    getBorderTilesHorizontal(minY, middleX, maxX, state, rightHalfTiles);
-    getBorderTilesHorizontal(maxY, middleX, maxX, state, rightHalfTiles);
+    // calculate boundary tiles for right half
+    const rightHalfTiles = new Set(midBoundary);
+    getBoundaryTilesVertical(maxX, minY, maxY, state, rightHalfTiles);
+    getBoundaryTilesHorizontal(minY, middleX, maxX, state, rightHalfTiles);
+    getBoundaryTilesHorizontal(maxY, middleX, maxX, state, rightHalfTiles);
     addTilesFromBox(tiles, rightHalfTiles, sub2);
     tiles2 = [...rightHalfTiles].map(i => allTiles[i]);
-
   } else {
     // CUT HORIZONTALLY
     const middleY = (minY + maxY) >> 1;
     sub1 = {minX: minX, minY: minY, maxX: maxX, maxY: middleY};  // top half
     sub2 = {minX: minX, minY: middleY, maxX: maxX, maxY: maxY};  // bottom half
-    // calculate middle border tiles
-    const midBorder = [...getBorderTilesHorizontal(middleY, minX, maxX, state)];
-    // calculate borders tiles for top half
-    const topHalfTiles = new Set(midBorder);
-    getBorderTilesHorizontal(minY, minX, maxX, state, topHalfTiles);
-    getBorderTilesVertical(minX, minY, middleY, state, topHalfTiles);
-    getBorderTilesVertical(maxX, minY, middleY, state, topHalfTiles);
+    // calculate middle boundary tiles
+    const midBoundary =
+        [...getBoundaryTilesHorizontal(middleY, minX, maxX, state)];
+    // calculate boundary tiles for top half
+    const topHalfTiles = new Set(midBoundary);
+    getBoundaryTilesHorizontal(minY, minX, maxX, state, topHalfTiles);
+    getBoundaryTilesVertical(minX, minY, middleY, state, topHalfTiles);
+    getBoundaryTilesVertical(maxX, minY, middleY, state, topHalfTiles);
     addTilesFromBox(tiles, topHalfTiles, sub1);
     tiles1 = [...topHalfTiles].map(i => allTiles[i]);
-    // calculate borders tiles for bottom half
-    const bottomHalfTiles = new Set(midBorder);
-    getBorderTilesHorizontal(maxY, minX, maxX, state, bottomHalfTiles);
-    getBorderTilesVertical(minX, middleY, maxY, state, bottomHalfTiles);
-    getBorderTilesVertical(maxX, middleY, maxY, state, bottomHalfTiles);
+    // calculate boundary tiles for bottom half
+    const bottomHalfTiles = new Set(midBoundary);
+    getBoundaryTilesHorizontal(maxY, minX, maxX, state, bottomHalfTiles);
+    getBoundaryTilesVertical(minX, middleY, maxY, state, bottomHalfTiles);
+    getBoundaryTilesVertical(maxX, middleY, maxY, state, bottomHalfTiles);
     addTilesFromBox(tiles, bottomHalfTiles, sub2);
     tiles2 = [...bottomHalfTiles].map(i => allTiles[i]);
-
   }
+
   renderRecursive(allTiles, {tiles: tiles1, canvas, pixels}, sub1);
   renderRecursive(allTiles, {tiles: tiles2, canvas, pixels}, sub2);
 }
 
-function getBorderTilesVertical(x, minY, maxY, state, borderTiles = new Set()) {
-  // cut off 1 pixel on either end b/c it will be handled by horizontal borders
+/**
+ * Adds to `boundaryTiles` the tileIndexes of all tiles that have at least one
+ * pixel on the specified vertical line. Colors in previously unknown pixels.
+ */
+// TODO: binary search
+function getBoundaryTilesVertical(
+    x, minY, maxY, state, boundaryTiles = new Set()) {
+  // cut off 1 pixel on either end because those will be handled by horizontal
+  // boundaries
   const canvasWidth = state.canvas.width;
   for (let y = minY + 1; y < maxY; ++y) {
     const pixelIndex = x + canvasWidth * y;
     const tileIndex = calculatePixel(x, y, pixelIndex, state);
-    borderTiles.add(tileIndex);
+    boundaryTiles.add(tileIndex);
   }
-  return borderTiles;
+  return boundaryTiles;
 }
 
-function getBorderTilesHorizontal(
-    y, minX, maxX, state, borderTiles = new Set()) {
+/**
+ * Adds to `boundaryTiles` the tileIndexes of all tiles that have at least one
+ * pixel on the specified horizontal line. Colors in previously unknown pixels.
+ */
+// TODO: binary search
+function getBoundaryTilesHorizontal(
+    y, minX, maxX, state, boundaryTiles = new Set()) {
   const rowOffset = state.canvas.width * y;
   for (let x = minX; x <= maxX; ++x) {
     const pixelIndex = x + rowOffset;
     const tileIndex = calculatePixel(x, y, pixelIndex, state);
-    borderTiles.add(tileIndex);
+    boundaryTiles.add(tileIndex);
   }
-  return borderTiles;
+  return boundaryTiles;
 }
 
+/**
+ * Adds to `tileSet` the tileIndexes from the subset of `tiles` whose capitols
+ * are inside the given bounding box.
+ */
 function addTilesFromBox(tiles, tileSet, {minX, minY, maxX, maxY}) {
   for (const tile of tiles) {
     if (minX < tile.x && tile.x < maxX && minY < tile.y && tile.y < maxY) {
@@ -225,80 +247,6 @@ function findClosestTile(x, y, tiles) {
     }
   }
   return closestTile;
-}
-
-/**
- * Returns the sqaure of the Euclidean distance between two points in R^2.
- * Sufficient for comparing distances.
- */
-function euclideanDist(x1, y1, x2, y2) {
-  const dx = x1 - x2;
-  const dy = y1 - y2;
-  return dx * dx + dy * dy;
-}
-
-/**
- * Creates a canvas element and returns a simple interface for drawing on it.
- */
-function createCanvas(width, height) {
-  if (canvas && canvas.width === width && canvas.height === height) {
-    return canvas;
-  }
-  console.time('createCanvas');
-  const el = document.createElement('canvas');
-  el.width = width;
-  el.height = height;
-  const ctx = el.getContext('2d');
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, width, height);
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
-  console.timeEnd('createCanvas');
-  return canvas = {
-    /** Returns the width of this canvas in pixels. */
-    get width() {
-      return width;
-    },
-    /** Returns the height of this canvas in pixels. */
-    get height() {
-      return height;
-    },
-    /**
-     * Removes any other elements from the given container and attaches this
-     * canvas instead.
-     */
-    attachToDom(container) {
-      if (container.children[0] !== el) {
-        [...container.children].forEach(child => child.remove());
-        container.appendChild(el);
-      }
-    },
-    /**
-     * Repaints the canvas, which will display any modifications made via
-     * setPixel.
-     */
-    repaint() {
-      ctx.putImageData(imageData, 0, 0);
-    },
-    /** Sets the given pixel to the given color. Does not repaint the canvas. */
-    setPixel(pixelIndex, rgb) {
-      const red = pixelIndex << 2;
-      data[red] = rgb[0];
-      data[red + 1] = rgb[1];
-      data[red + 2] = rgb[2];
-    },
-    /**
-     * Sets all the pixels between the given indices (inclusive) to the given
-     * color. Does not repaint the canvas.
-     */
-    setRow(leftIndex, rightIndex, rgb) {
-      for (let i = (leftIndex << 2); i < (rightIndex << 2) + 1; i += 4) {
-        data[i] = rgb[0];
-        data[i + 1] = rgb[1];
-        data[i + 2] = rgb[2];
-      }
-    },
-  };
 }
 
 /**
