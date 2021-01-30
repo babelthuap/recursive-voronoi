@@ -13,7 +13,7 @@ export function createCanvas(width, height) {
   el.width = width;
   el.height = height;
   const ctx = el.getContext('2d');
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = 'cyan';
   ctx.fillRect(0, 0, width, height);
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
@@ -52,11 +52,11 @@ export function createCanvas(width, height) {
       data[red + 2] = rgb[2];
     },
     /**
-     * Sets all the pixels between the given indices (inclusive) to the given
-     * color. Does not repaint the canvas.
+     * Sets all the pixels in [leftIndex, rightIndex) to the given color. Does
+     * not repaint the canvas.
      */
     setRow(leftIndex, rightIndex, rgb) {
-      for (let i = (leftIndex << 2); i < (rightIndex << 2) + 1; i += 4) {
+      for (let i = (leftIndex << 2); i < (rightIndex << 2); i += 4) {
         data[i] = rgb[0];
         data[i + 1] = rgb[1];
         data[i + 2] = rgb[2];
