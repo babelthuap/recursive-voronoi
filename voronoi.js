@@ -215,7 +215,7 @@ function getBoundaryTilesVertical(
     // don't do outermost left boundary
     return;
   }
-  const {allTiles, canvas, pixels} = state;
+  const {canvas, pixels} = state;
   const width = canvas.width;
   let top = minY;
 
@@ -259,8 +259,7 @@ function getBoundaryTilesVertical(
 function getBoundaryTilesHorizontal(
     y, minX, maxX, state, boundaryTiles = new Set()) {
   if (y === 0) {
-    // don't do outermost top boundary - note that we will miss the top right
-    // pixel, so we fill that in separately
+    // don't do outermost top boundary
     return;
   }
   const {allTiles, canvas, pixels} = state;
@@ -308,6 +307,7 @@ function getBoundaryTilesHorizontal(
  * are inside the given bounding box.
  */
 function addTilesFromBox(tiles, tileSet, {minX, minY, maxX, maxY}) {
+  // TODO: store capitals in a tree for faster retrieval
   for (const tile of tiles) {
     if (minX < tile.x && tile.x < maxX && minY < tile.y && tile.y < maxY) {
       tileSet.add(tile.i);
