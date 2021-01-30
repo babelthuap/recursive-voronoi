@@ -52,11 +52,11 @@ export function createCanvas(width, height) {
       data[red + 2] = rgb[2];
     },
     /**
-     * Sets all the pixels in [leftIndex, rightIndex) to the given color. Does
+     * Sets all the pixels in [leftIndex, rightIndex] to the given color. Does
      * not repaint the canvas.
      */
     setRowHorizontal(leftIndex, rightIndex, rgb) {
-      for (let i = (leftIndex << 2); i < (rightIndex << 2); i += 4) {
+      for (let i = (leftIndex << 2); i < (rightIndex << 2) + 1; i += 4) {
         data[i] = rgb[0];
         data[i + 1] = rgb[1];
         data[i + 2] = rgb[2];

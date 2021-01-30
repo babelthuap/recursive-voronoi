@@ -123,8 +123,6 @@ function renderRecursive(state, {minX, minY, maxX, maxY}, recolor = false) {
     // this box is a solid color! we can stop recursing
     const color = tiles[0].color;
     const tileIndex = tiles[0].i;
-    // stop one short on right and bottom because those boundaries are always
-    // filled in already (see the getBoundaryTiles* functions)
     for (let y = minY; y < maxY; ++y) {
       const rowOffset = canvas.width * y;
       canvas.setRowHorizontal(minX + rowOffset, maxX + rowOffset, color);
@@ -138,7 +136,7 @@ function renderRecursive(state, {minX, minY, maxX, maxY}, recolor = false) {
       // pixels already known, just need to color
       for (let y = minY; y < maxY; ++y) {
         const rowOffset = canvas.width * y;
-        for (let x = minX; x < maxX; ++x) {
+        for (let x = minX; x <= maxX; ++x) {
           const pixelIndex = x + rowOffset;
           canvas.setPixel(pixelIndex, allTiles[pixels[pixelIndex]].color);
         }
@@ -147,7 +145,7 @@ function renderRecursive(state, {minX, minY, maxX, maxY}, recolor = false) {
       // pixels unknown; need to calculate
       for (let y = minY; y < maxY; ++y) {
         const rowOffset = canvas.width * y;
-        for (let x = minX; x < maxX; ++x) {
+        for (let x = minX; x <= maxX; ++x) {
           const pixelIndex = x + rowOffset;
           calculatePixel(x, y, pixelIndex, state);
         }
@@ -211,20 +209,45 @@ function renderRecursive(state, {minX, minY, maxX, maxY}, recolor = false) {
  * Adds to `boundaryTiles` the tileIndexes of all tiles that have at least one
  * pixel on the specified vertical line. Colors in previously unknown pixels.
  */
-// TODO: binary search
 function getBoundaryTilesVertical(
     x, minY, maxY, state, boundaryTiles = new Set()) {
   if (x === 0) {
     // don't do outermost left boundary
     return;
   }
+  const {allTiles, canvas, pixels} = state;
+  const width = canvas.width;
+  let top = minY;
+
   // cut off 1 pixel from the end because that will be handled by horizontal
   // boundaries
-  const canvasWidth = state.canvas.width;
-  for (let y = minY; y < maxY; ++y) {
-    const pixelIndex = x + canvasWidth * y;
-    const tileIndex = calculatePixel(x, y, pixelIndex, state);
-    boundaryTiles.add(tileIndex);
+  while (top < maxY) {
+    const topTileIndex = calculatePixel(x, top, x + width * top, state);
+    boundaryTiles.add(topTileIndex);
+
+    // fill in un-colored pixels: starting at top, search for the border with
+    // next color in this row, then fill the pixels in between
+    let bottom = maxY;
+    let bottomPixelIndex = x + width * bottom;
+    if (calculatePixel(x, bottom, bottomPixelIndex, state) !== topTileIndex) {
+      let step = Math.max((bottom - top) >> 1, 1);
+      do {
+        if (pixels[bottomPixelIndex] === topTileIndex) {
+          bottom += step;
+        } else {
+          bottom -= step;
+        }
+        bottomPixelIndex = x + width * bottom;
+        if (step > 1) {
+          step >>= 1;
+        }
+      } while (
+          calculatePixel(x, bottom, bottomPixelIndex, state) !== topTileIndex ||
+          calculatePixel(x, bottom + 1, bottomPixelIndex + width, state) ===
+              topTileIndex);
+    }
+
+    top = bottom + 1;
   }
   return boundaryTiles;
 }
@@ -245,7 +268,8 @@ function getBoundaryTilesHorizontal(
   let left = minX;
 
   while (left <= maxX) {
-    const leftTileIndex = calculatePixel(left, y, left + rowOffset, state);
+    const leftPixelIndex = left + rowOffset;
+    const leftTileIndex = calculatePixel(left, y, leftPixelIndex, state);
     boundaryTiles.add(leftTileIndex);
 
     // fill in un-colored pixels: starting at left, search for the border with
@@ -272,7 +296,7 @@ function getBoundaryTilesHorizontal(
 
     // fill line of same-color pixels
     const color = allTiles[leftTileIndex].color;
-    canvas.setRowHorizontal(left + rowOffset, right + rowOffset + 1, color);
+    canvas.setRowHorizontal(leftPixelIndex, rightPixelIndex, color);
 
     left = right + 1;
   }
