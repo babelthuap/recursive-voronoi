@@ -25,3 +25,20 @@ document.addEventListener('mousedown', event => {
   }
   requestAnimationFrame(() => renderInProgress = false);
 });
+
+// Re-render multiple times in a row and time each.
+if (URL_PARAMS.has('test')) {
+  test(Number(URL_PARAMS.get('test')) || 20);
+}
+async function test(iterations) {
+  const t = [];
+  for (let i = 0; i < iterations; i++) {
+    const s = performance.now();
+    drawRandomVoronoiDiagram(NUM_TILES);
+    const d = performance.now() - s;
+    t.push(d);
+    await new Promise(resolve => requestAnimationFrame(resolve));
+  }
+  console.log('timings:', t);
+  console.log('avg:', (t.reduce((sum, x) => sum + x, 0) / t.length).toFixed(0));
+}
