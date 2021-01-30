@@ -2,7 +2,7 @@ import {createCanvas} from './canvas.js';
 import {distance, rand} from './util.js';
 
 // reuse these across renders to reduce garbage collection time
-let pixelsArray, unsetId;
+let tilesArray, colorsArray, pixelsArray, unsetId;
 
 /** Draws a random Voronoi diagram. */
 export function drawRandomVoronoiDiagram(
@@ -41,10 +41,20 @@ export function recolor({tiles, canvas, pixels}) {
 /** Places tile capitals randomly. */
 function placeTiles(numTiles, width, height) {
   console.time('placeTiles');
-  const tiles = new Array(numTiles);
+
+  if (!tilesArray) {
+    tilesArray = new Array(numTiles);
+  } else if (tilesArray.length !== numTiles) {
+    tilesArray.length === numTiles;
+  }
+  const tiles = tilesArray;
+
+  if (!colorsArray || colorsArray.length !== 3 * numTiles) {
+    colorsArray = new Uint8ClampedArray(3 * numTiles);
+  }
+  const randColors = crypto.getRandomValues(colorsArray);
+
   const capitals = new Set();
-  const randColors =
-      crypto.getRandomValues(new Uint8ClampedArray(3 * numTiles));
   for (let i = 0; i < numTiles; ++i) {
     let x = rand(width);
     let y = rand(height);
@@ -58,6 +68,7 @@ function placeTiles(numTiles, width, height) {
     const color = randColors.subarray(3 * i, 3 * (i + 1));
     tiles[i] = {i, x, y, color};
   }
+
   console.timeEnd('placeTiles');
   return tiles;
 }
@@ -265,11 +276,7 @@ function getBoundaryTilesHorizontal(
 
     // fill line of same-color pixels
     const color = allTiles[leftTileIndex].color;
-    for (let pixelIndex = left + rowOffset; pixelIndex <= right + rowOffset;
-         ++pixelIndex) {
-      canvas.setPixel(pixelIndex, color);
-      pixels[pixelIndex] = leftTileIndex;
-    }
+    canvas.setRowHorizontal(left + rowOffset, right + rowOffset + 1, color);
 
     left = right + 1;
   }
