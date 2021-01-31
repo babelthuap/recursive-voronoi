@@ -5,15 +5,23 @@ const NUM_TILES = parseInt(URL_PARAMS.get('n'), 10) ||
     Math.round(window.innerWidth * window.innerHeight / 10_000);
 const TEST_MODE = URL_PARAMS.has('test');
 
-// Disable context menu so we can handle right click
+// Hold on to the render state in order to recolor it
+let state = drawRandomVoronoiDiagram(NUM_TILES, /* antialias= */ !TEST_MODE);
+let renderInProgress = false;
+
 document.addEventListener('contextmenu', event => {
+  // Disable context menu so we can handle right click
   event.preventDefault();
+  // On mobile, however, "right click" won't trigger, so recolor here instead
+  if (!renderInProgress) {
+    renderInProgress = true;
+    recolor(state);
+    requestAnimationFrame(() => renderInProgress = false);
+  }
   return false;
 });
 
 // Handle clicks: left click = randomize; right click = recolor
-let state = drawRandomVoronoiDiagram(NUM_TILES, /* antialias= */ !TEST_MODE);
-let renderInProgress = false;
 document.addEventListener('mousedown', event => {
   if (renderInProgress) {
     return;
