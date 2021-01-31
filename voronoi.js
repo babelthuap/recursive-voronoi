@@ -48,7 +48,7 @@ export function recolor({tiles, canvas, pixels}) {
   renderRecursive(
       {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
       {minX: 0, minY: 0, maxX: canvas.width - 1, maxY: canvas.height - 1});
-  renderAntialiasedBorders(tiles, canvas, pixels);
+  renderAntialiasedBorders(tiles, canvas, pixels, /* bordersKnown= */ true);
   canvas.repaint();
   canvas.repaint();
   console.timeEnd('recolor');
@@ -411,32 +411,32 @@ function findClosestTile(x, y, tiles) {
 }
 
 /** Antialiases borders. */
-function renderAntialiasedBorders(tiles, canvas, pixels) {
+function renderAntialiasedBorders(tiles, canvas, pixels, bordersKnown = false) {
+  const width = canvas.width;
+  const height = canvas.height;
   if (bordersKnown) {
-    for (let y = 0; y < canvas.height; ++y) {
-      const rowOffset = canvas.width * y;
-      for (let x = 0; x < canvas.width; ++x) {
-        const subpixels = borderPixels[y][x];
-        if (subpixels !== undefined) {
-          canvas.setPixel(x + rowOffset, averageSubpixels(subpixels, tiles));
-        }
+    for (let pixelIndex = 0; pixelIndex < width * height; ++pixelIndex) {
+      const subpixels = borderPixels[pixelIndex];
+      if (subpixels !== undefined) {
+        canvas.setPixel(pixelIndex, averageSubpixels(subpixels, tiles));
       }
     }
   } else {
     // borders unknown - so we must calculate them
     calculateNbrTileIndexes(canvas, pixels);
-    for (let y = 0; y < canvas.height; ++y) {
-      for (let x = 0; x < canvas.width; ++x) {
+    for (let y = 0; y < height; ++y) {
+      const rowOffset = width * y;
+      for (let x = 0; x < width; ++x) {
+        const pixelIndex = x + rowOffset;
         // determine the tiles to which each neighbor pixel belongs
-        const nbrTileIndices = borderPixels[y][x];
+        const nbrTileIndices = borderPixels[pixelIndex];
         // if this is a border pixel, then sample subpixels
         if (nbrTileIndices !== undefined) {
-          const pixelIndex = x + canvas.width * y;
           const subpixels = getSubpixelTileIndices(
               x, y, tiles, pixels[pixelIndex], nbrTileIndices);
           // NOTE: this changes the definition of borderPixels - we now have
-          // borderPixels[y][x] = array of subpixel tileIndexes
-          borderPixels[y][x] = subpixels;
+          // borderPixels[pixelIndex] = array of subpixel tileIndexes
+          borderPixels[pixelIndex] = subpixels;
           canvas.setPixel(pixelIndex, averageSubpixels(subpixels, tiles));
         }
       }
@@ -455,18 +455,22 @@ const add = (arr, e) => {
 };
 
 /**
- * Initializes borderPixels. Sets borderPixels[y][x] = array of neighboring tile
- * indexes, or empty if all neighbors belong to the same tile.
+ * Initializes borderPixels. Sets borderPixels[pixelIndex] = array of
+ * neighboring tile indexes, or empty if all neighbors belong to the same tile.
  */
 function calculateNbrTileIndexes(canvas, pixels) {
-  if (borderPixels === undefined) {
-    borderPixels = new Array(canvas.height);
-  }
   const width = canvas.width;
   const height = canvas.height;
+  if (borderPixels === undefined) {
+    borderPixels = new Array(width * height);
+  } else {
+    if (borderPixels.length !== width * height) {
+      borderPixels.length = width * height;
+    }
+    borderPixels.fill();
+  }
   // search for borders row by row
   for (let y = 0; y < height; ++y) {
-    borderPixels[y] = new Array(width);
     const rowOffset = width * y;
     let left = 0;
     while (left < width - 1) {
@@ -490,9 +494,9 @@ function calculateNbrTileIndexes(canvas, pixels) {
         } while (pixels[rightPixelIndex] !== leftTileIndex ||
                  pixels[rightPixelIndex + 1] === leftTileIndex);
       }
-      borderPixels[y][right] =
-          add(borderPixels[y][right] || [], pixels[rightPixelIndex + 1]);
-      borderPixels[y][right + 1] = [pixels[rightPixelIndex]];
+      borderPixels[rightPixelIndex] =
+          add(borderPixels[rightPixelIndex] || [], pixels[rightPixelIndex + 1]);
+      borderPixels[rightPixelIndex + 1] = [pixels[rightPixelIndex]];
       left = right + 1;
     }
   }
@@ -519,15 +523,19 @@ function calculateNbrTileIndexes(canvas, pixels) {
         } while (pixels[bottomPixelIndex] !== topTileIndex ||
                  pixels[bottomPixelIndex + width] === topTileIndex);
       }
-      borderPixels[bottom][x] =
-          add(borderPixels[bottom][x] || [], pixels[bottomPixelIndex + width]);
-      borderPixels[bottom + 1][x] =
-          add(borderPixels[bottom + 1][x] || [], pixels[bottomPixelIndex]);
+      borderPixels[bottomPixelIndex] =
+          add(borderPixels[bottomPixelIndex] || [],
+              pixels[bottomPixelIndex + width]);
+      borderPixels[bottomPixelIndex + width] =
+          add(borderPixels[bottomPixelIndex + width] || [],
+              pixels[bottomPixelIndex]);
       top = bottom + 1;
     }
   }
 }
 
+// Evenly spaced subpixel coordinates - we're effectively rendering border
+// pixels at 3x resolution.
 const SUBPIXEL_OFFSETS = [
   [-1/3, -1/3], [0, -1/3], [1/3, -1/3],
   [-1/3,    0], [0,    0], [1/3,    0],
