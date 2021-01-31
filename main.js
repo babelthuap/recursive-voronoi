@@ -31,12 +31,12 @@ if (URL_PARAMS.has('test')) {
   test(Number(URL_PARAMS.get('test')) || 20);
 }
 async function test(iterations) {
-  const disabledLoggers = {
-    log: console.log,
-    time: console.time,
-    timeEnd: console.timeEnd,
-  };
-  Object.keys(disabledLoggers).forEach(name => console[name] = () => null);
+  const disabledNames = ['log', 'time', 'timeEnd'];
+  const disabledFns = disabledNames.map(name => {
+    const fn = console[name];
+    console[name] = () => null;
+    return [name, fn];
+  });
 
   const t = [];
   for (let i = 0; i < iterations; i++) {
@@ -47,7 +47,7 @@ async function test(iterations) {
     await new Promise(resolve => requestAnimationFrame(resolve));
   }
 
-  Object.entries(disabledLoggers).forEach(([name, fn]) => console[name] = fn);
+  disabledFns.forEach(([name, fn]) => console[name] = fn);
   console.log('timings:', t);
   console.log('avg:', (t.reduce((sum, x) => sum + x, 0) / t.length).toFixed(0));
 }
