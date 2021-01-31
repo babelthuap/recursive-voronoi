@@ -48,7 +48,7 @@ export function recolor({tiles, canvas, pixels}) {
   renderRecursive(
       {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
       {minX: 0, minY: 0, maxX: canvas.width - 1, maxY: canvas.height - 1});
-  renderAntialiasedBorders(tiles, canvas, pixels, /* bordersKnown= */ true);
+  renderAntialiasedBorders(tiles, canvas, pixels);
   canvas.repaint();
   canvas.repaint();
   console.timeEnd('recolor');
@@ -411,7 +411,7 @@ function findClosestTile(x, y, tiles) {
 }
 
 /** Antialiases borders. */
-function renderAntialiasedBorders(tiles, canvas, pixels, bordersKnown = false) {
+function renderAntialiasedBorders(tiles, canvas, pixels) {
   const width = canvas.width;
   const height = canvas.height;
   if (bordersKnown) {
@@ -441,7 +441,6 @@ function renderAntialiasedBorders(tiles, canvas, pixels, bordersKnown = false) {
         }
       }
     }
-
     bordersKnown = true;
   }
 }
@@ -461,6 +460,7 @@ const add = (arr, e) => {
 function calculateNbrTileIndexes(canvas, pixels) {
   const width = canvas.width;
   const height = canvas.height;
+  // TODO: try sparse array
   if (borderPixels === undefined) {
     borderPixels = new Array(width * height);
   } else {
