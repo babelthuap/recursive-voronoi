@@ -5,20 +5,41 @@ const NUM_TILES = parseInt(URL_PARAMS.get('n'), 10) ||
     Math.round(window.innerWidth * window.innerHeight / 10_000);
 const TEST_MODE = URL_PARAMS.has('test');
 
-// Postprocessing options
+// Render options
 const options = {
   antialias: !TEST_MODE,
+  container: document.getElementById('canvas'),
   displayCapitals: false,
+  imageUrl: null,
 };
 
-// Hold on to the render state in order to recolor it (etc.)
-let state = drawRandomVoronoiDiagram(NUM_TILES, {
-  antialias: options.antialias,
-  displayCapitals: options.displayCapitals,
+// Hold on to the Voronoi diagram state in order to recolor it (etc.)
+let state = drawRandomVoronoiDiagram(NUM_TILES, options);
+
+/** Invokes fn if there's not already a render in progress. */
+const doRender = (() => {
+  let renderInProgress = false;
+  return (fn) => {
+    if (!renderInProgress) {
+      renderInProgress = true;
+      fn();
+      requestAnimationFrame(() => renderInProgress = false);
+    }
+  };
+})();
+
+// Handle image upload
+document.getElementById('upload').addEventListener('change', function() {
+  doRender(() => {
+    if (this.files && this.files[0]) {
+      options.imageUrl = URL.createObjectURL(this.files[0]);
+      rerender(state, options);
+    }
+  });
 });
 
-document.addEventListener('contextmenu', event => {
-  // Disable context menu so we can handle right click
+// Disable context menu so we can handle right click
+options.container.addEventListener('contextmenu', event => {
   event.preventDefault();
   // On mobile, however, "right click" won't trigger, so recolor here instead
   doRender(() => recolor(state, options));
@@ -26,15 +47,12 @@ document.addEventListener('contextmenu', event => {
 });
 
 // Handle clicks: left click = randomize; right click = recolor
-document.addEventListener('mousedown', event => {
+options.container.addEventListener('mousedown', event => {
   doRender(() => {
     if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey) {
       recolor(state, options);
     } else {
-      state = drawRandomVoronoiDiagram(NUM_TILES, {
-        antialias: options.antialias,
-        displayCapitals: options.displayCapitals,
-      });
+      state = drawRandomVoronoiDiagram(NUM_TILES, options);
     }
   });
 });
@@ -51,10 +69,7 @@ document.addEventListener('keydown', event => {
         recolor(state, options);
         break;
       case 's':
-        state = drawRandomVoronoiDiagram(NUM_TILES, {
-          antialias: options.antialias,
-          displayCapitals: options.displayCapitals,
-        });
+        state = drawRandomVoronoiDiagram(NUM_TILES, options);
         break;
       case 't':
         options.displayCapitals = !options.displayCapitals;
@@ -63,16 +78,6 @@ document.addEventListener('keydown', event => {
     }
   });
 });
-
-/** Invokes fn if there's not already a render in progress. */
-let renderInProgress = false;
-function doRender(fn) {
-  if (!renderInProgress) {
-    renderInProgress = true;
-    fn();
-    requestAnimationFrame(() => renderInProgress = false);
-  }
-}
 
 
 /**********************/

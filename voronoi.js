@@ -1,6 +1,6 @@
 import {renderAntialiasedBorders} from './antialias.js';
 import {createCanvas} from './canvas.js';
-import {distance, rand} from './util.js';
+import {distance, loadImagePixelData, rand} from './util.js';
 
 // reuse these across renders to reduce garbage collection time
 let tilesArray, colorsArray, pixelsArray, unsetId;
@@ -10,6 +10,7 @@ export function drawRandomVoronoiDiagram(numTiles, {
   antialias = true,
   container = document.body,
   displayCapitals = false,
+  imageUrl = null,
   width = window.innerWidth,
   height = window.innerHeight,
 }) {
@@ -22,7 +23,11 @@ export function drawRandomVoronoiDiagram(numTiles, {
   canvas.attachToDom(container);
 
   const state = {tiles, canvas, pixels};
-  postprocess(state, {antialias, displayCapitals});
+  if (imageUrl) {
+    renderImage(state, {antialias, displayCapitals, imageUrl});
+  } else {
+    postprocess(state, {antialias, displayCapitals, imageUrl});
+  }
 
   console.timeEnd('drawRandomVoronoiDiagram_' + numTiles);
   return state;
@@ -31,6 +36,7 @@ export function drawRandomVoronoiDiagram(numTiles, {
 /** Reassigns random colors to each tile and then re-renders. */
 export function recolor(state, options) {
   console.time('recolor');
+  options.imageUrl = null;
   for (const tile of state.tiles) {
     tile.color[0] = rand(256);
     tile.color[1] = rand(256);
@@ -46,7 +52,11 @@ export function rerender(state, options) {
   renderRecursive(
       {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
       {minX: 0, minY: 0, maxX: canvas.width - 1, maxY: canvas.height - 1});
-  postprocess(state, options);
+  if (options.imageUrl) {
+    renderImage(state, options);
+  } else {
+    postprocess(state, options);
+  }
 }
 
 /**
@@ -77,6 +87,48 @@ function drawCapitals({tiles, canvas}) {
     const tile = tiles[i];
     canvas.drawCircle(tile.x, tile.y, /* r= */ 5);
   }
+}
+
+/** Recolors tiles to approximate the given image. */
+function renderImage(state, options) {
+  console.time('renderImage');
+
+  const {tiles, canvas, pixels} = state;
+  const width = canvas.width;
+  const height = canvas.height;
+
+  loadImagePixelData(options.imageUrl, width, height).then(imgPixelData => {
+    // determine new tile colors
+    const newTileColors = tiles.map(tile => {
+      return {count: 0, rgb: new Uint32Array(3)};
+    });
+    for (let pixelIndex = 0; pixelIndex < pixels.length; ++pixelIndex) {
+      const tileIndex = pixels[pixelIndex];
+      const newColor = newTileColors[tileIndex];
+      newColor.count += 1;
+      const imgR = pixelIndex << 2;
+      newColor.rgb[0] += imgPixelData[imgR];
+      newColor.rgb[1] += imgPixelData[imgR + 1];
+      newColor.rgb[2] += imgPixelData[imgR + 2];
+    }
+
+    // recolor
+    for (let tileIndex = 0; tileIndex < tiles.length; ++tileIndex) {
+      const tile = tiles[tileIndex];
+      const newColor = newTileColors[tileIndex];
+      tile.color[0] = newColor.rgb[0] / newColor.count;
+      tile.color[1] = newColor.rgb[1] / newColor.count;
+      tile.color[2] = newColor.rgb[2] / newColor.count;
+    }
+
+    // re-render
+    renderRecursive(
+        {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
+        {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
+    postprocess(state, options);
+
+    console.timeEnd('renderImage');
+  });
 }
 
 /** Places tile capitals randomly. */

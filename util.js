@@ -74,6 +74,28 @@ export function averageSubpixels(subpixels, tiles) {
   return average;
 }
 
+/** Loads pixel data from an image stretched to the given dimensions. */
+export function loadImagePixelData(imageUrl, width, height) {
+  return new Promise(resolve => {
+    const imageCanvas = document.createElement('canvas');
+    imageCanvas.width = width;
+    imageCanvas.height = height;
+    const image = new Image();
+    image.crossOrigin = 'Anonymous';
+    image.src = imageUrl;
+    image.addEventListener('load', () => {
+      // stretch image onto imageCanvas
+      const ctx = imageCanvas.getContext('2d');
+      ctx.drawImage(
+          image,
+          /* source: */ 0, 0, image.width, image.height,
+          /* destination: */ 0, 0, width, height);
+      const imgPixelData = ctx.getImageData(0, 0, width, height).data;
+      resolve(imgPixelData);
+    });
+  });
+}
+
 /**
  * sorts a lattice of points by their distance from the origin, breaking ties by
  * comparing polar angles. the output array is of the form [x0, y0, x1, y1, ...]
