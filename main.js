@@ -3,6 +3,7 @@ import {drawRandomVoronoiDiagram, recolor} from './voronoi.js';
 const URL_PARAMS = new URLSearchParams(window.location.search);
 const NUM_TILES = parseInt(URL_PARAMS.get('n'), 10) ||
     Math.round(window.innerWidth * window.innerHeight / 10_000);
+const TEST_MODE = URL_PARAMS.has('test');
 
 // Disable context menu so we can handle right click
 document.addEventListener('contextmenu', event => {
@@ -11,7 +12,7 @@ document.addEventListener('contextmenu', event => {
 });
 
 // Handle clicks: left click = randomize; right click = recolor
-let state = drawRandomVoronoiDiagram(NUM_TILES);
+let state = drawRandomVoronoiDiagram(NUM_TILES, /* antialias= */ !TEST_MODE);
 let renderInProgress = false;
 document.addEventListener('mousedown', event => {
   if (renderInProgress) {
@@ -27,7 +28,7 @@ document.addEventListener('mousedown', event => {
 });
 
 // Re-render multiple times in a row and time each.
-if (URL_PARAMS.has('test')) {
+if (TEST_MODE) {
   test(Number(URL_PARAMS.get('test')) || 20);
 }
 async function test(iterations) {
@@ -41,7 +42,7 @@ async function test(iterations) {
   const t = [];
   for (let i = 0; i < iterations; i++) {
     const s = performance.now();
-    drawRandomVoronoiDiagram(NUM_TILES);
+    state = drawRandomVoronoiDiagram(NUM_TILES, /* antialias= */ false);
     const d = performance.now() - s;
     t.push(d);
     await new Promise(resolve => requestAnimationFrame(resolve));

@@ -1,13 +1,16 @@
 import {createCanvas} from './canvas.js';
-import {distance, rand} from './util.js';
+import {averageSubpixels, distance, rand} from './util.js';
 
 // reuse these across renders to reduce garbage collection time
 let tilesArray, colorsArray, pixelsArray, unsetId;
 
+let borderPixels;
+let bordersKnown = false;
+
 /** Draws a random Voronoi diagram. */
 export function drawRandomVoronoiDiagram(
-    numTiles, width = window.innerWidth, height = window.innerHeight,
-    container = document.body) {
+    numTiles, antialias = true, width = window.innerWidth,
+    height = window.innerHeight, container = document.body) {
   console.log('');
   console.time('drawRandomVoronoiDiagram_' + numTiles);
 
@@ -15,10 +18,20 @@ export function drawRandomVoronoiDiagram(
   const canvas = createCanvas(width, height);
   const pixels = calculateAndRenderPixels(tiles, canvas);
 
-  // TODO: antialias
-
   canvas.repaint();
   canvas.attachToDom(container);
+
+  if (antialias) {
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        console.time('antialias');
+        bordersKnown = false;
+        renderAntialiasedBorders(tiles, canvas, pixels);
+        canvas.repaint();
+        console.timeEnd('antialias');
+      });
+    }, 0);
+  }
 
   console.timeEnd('drawRandomVoronoiDiagram_' + numTiles);
   return {tiles, canvas, pixels};
@@ -35,6 +48,8 @@ export function recolor({tiles, canvas, pixels}) {
   renderRecursive(
       {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
       {minX: 0, minY: 0, maxX: canvas.width - 1, maxY: canvas.height - 1});
+  renderAntialiasedBorders(tiles, canvas, pixels);
+  canvas.repaint();
   canvas.repaint();
   console.timeEnd('recolor');
 }
@@ -132,6 +147,10 @@ function renderRecursive(state, {minX, minY, maxX, maxY}) {
     for (let y = minY; y <= maxY; ++y) {
       const rowOffset = canvas.width * y;
       canvas.setRowHorizontal(minX + rowOffset, maxX + rowOffset, color);
+      for (let pixelIndex = minX + rowOffset; pixelIndex <= maxX + rowOffset;
+           ++pixelIndex) {
+        pixels[pixelIndex] = tile.i;
+      }
     }
     return;
   }
@@ -171,6 +190,10 @@ function renderRecursive(state, {minX, minY, maxX, maxY}) {
         // fill line of same-color pixels
         const color = allTiles[leftTileIndex].color;
         canvas.setRowHorizontal(leftPixelIndex, rightPixelIndex, color);
+        for (let pixelIndex = leftPixelIndex; pixelIndex <= rightPixelIndex;
+             ++pixelIndex) {
+          pixels[pixelIndex] = leftTileIndex;
+        }
 
         left = right + 1;
       }
@@ -348,6 +371,10 @@ function getBoundaryTilesHorizontal(
 
     // fill line of same-color pixels
     canvas.setRowHorizontal(leftPixelIndex, rightPixelIndex, leftTile.color);
+    for (let pixelIndex = leftPixelIndex; pixelIndex <= rightPixelIndex;
+         ++pixelIndex) {
+      pixels[pixelIndex] = leftTileIndex;
+    }
 
     left = right + 1;
   }
@@ -381,4 +408,101 @@ function findClosestTile(x, y, tiles) {
     }
   }
   return closestTile;
+}
+
+
+
+function renderAntialiasedBorders(tiles, canvas, pixels) {
+  if (bordersKnown) {
+    for (let y = 0; y < canvas.height; y++) {
+      const rowOffset = canvas.width * y;
+      for (let x = 0; x < canvas.width; x++) {
+        const subpixels = borderPixels[y][x];
+        if (subpixels !== undefined) {
+          canvas.setPixel(x + rowOffset, averageSubpixels(subpixels, tiles));
+        }
+      }
+    }
+  } else {
+    // borders unknown - so we must calculate them
+    calculateNbrTileIndices(tiles, canvas, pixels);
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        // determine the tiles to which each neighbor pixel belongs
+        const nbrTileIndices = borderPixels[y][x];
+        // if this is a border pixel, then sample subpixels
+        if (nbrTileIndices !== undefined) {
+          const pixelIndex = x + canvas.width * y;
+          const subpixels = getSubpixelTileIndices(
+              x, y, tiles, pixels[pixelIndex], nbrTileIndices);
+          borderPixels[y][x] = subpixels;
+          canvas.setPixel(pixelIndex, averageSubpixels(subpixels, tiles));
+        }
+      }
+    }
+
+    bordersKnown = true;
+  }
+}
+
+const add = (arr, e) => {
+  if (!arr.includes(e)) {
+    arr.push(e);
+  }
+  return arr;
+};
+
+function calculateNbrTileIndices(tiles, canvas, pixels) {
+  if (borderPixels === undefined) {
+    borderPixels = new Array(canvas.height);
+  }
+  const widthMinusOne = canvas.width - 1;
+  for (let y = 0; y < canvas.height; y++) {
+    const row = borderPixels[y] = new Array(canvas.width);
+    for (let x = 0; x < widthMinusOne; x++) {
+      const pixelIndex = x + canvas.width * y;
+      if (pixels[pixelIndex] !== pixels[pixelIndex + 1]) {
+        row[x] = add(row[x] || [], pixels[pixelIndex + 1]);
+        row[x + 1] = [pixels[pixelIndex]];
+      }
+    }
+  }
+  const heightMinusOne = canvas.height - 1;
+  for (let x = 0; x < canvas.width; x++) {
+    for (let y = 0; y < heightMinusOne; y++) {
+      const pixelIndex = x + canvas.width * y;
+      if (pixels[pixelIndex] !== pixels[pixelIndex + canvas.width]) {
+        borderPixels[y][x] =
+            add(borderPixels[y][x] || [], pixels[pixelIndex + canvas.width]);
+        borderPixels[y + 1][x] =
+            add(borderPixels[y + 1][x] || [], pixels[pixelIndex]);
+      }
+    }
+  }
+}
+
+const SUBPIXEL_OFFSETS = [
+  [-1/3, -1/3], [0, -1/3], [1/3, -1/3],
+  [-1/3,    0], [0,    0], [1/3,    0],
+  [-1/3,  1/3], [0,  1/3], [1/3,  1/3],
+];
+
+function getSubpixelTileIndices(x, y, tiles, tileIndex, nbrTileIndices) {
+  const tile = tiles[tileIndex];
+  return SUBPIXEL_OFFSETS.map(([dx, dy]) => {
+    const subpixelX = x + dx;
+    const subpixelY = y + dy;
+    let closestTileIndex = tileIndex;
+    let minDist = distance(subpixelX, subpixelY, tile.x, tile.y);
+    for (let i = 0; i < nbrTileIndices.length; i++) {
+      const index = nbrTileIndices[i];
+      const nbrTile = tiles[index];
+      const dist = distance(subpixelX, subpixelY, nbrTile.x, nbrTile.y);
+      if (dist < minDist) {
+        minDist = dist;
+        closestTileIndex = index;
+      }
+    }
+    return closestTileIndex;
+  });
 }

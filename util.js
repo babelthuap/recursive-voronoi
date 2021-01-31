@@ -56,6 +56,24 @@ export const distance = (() => {
   }
 })();
 
+/** Averages the color values of the given subpixel tileIndexes. */
+export function averageSubpixels(subpixels, tiles) {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (let i = 0; i < subpixels.length; i++) {
+    const color = tiles[subpixels[i]].color;
+    r += color[0];
+    g += color[1];
+    b += color[2];
+  }
+  const average = new Uint8ClampedArray(3);
+  average[0] = r / subpixels.length;
+  average[1] = g / subpixels.length;
+  average[2] = b / subpixels.length;
+  return average;
+}
+
 /**
  * sorts a lattice of points by their distance from the origin, breaking ties by
  * comparing polar angles. the output array is of the form [x0, y0, x1, y1, ...]
