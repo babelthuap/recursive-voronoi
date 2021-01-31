@@ -410,13 +410,12 @@ function findClosestTile(x, y, tiles) {
   return closestTile;
 }
 
-
-
+/** Antialiases borders. */
 function renderAntialiasedBorders(tiles, canvas, pixels) {
   if (bordersKnown) {
-    for (let y = 0; y < canvas.height; y++) {
+    for (let y = 0; y < canvas.height; ++y) {
       const rowOffset = canvas.width * y;
-      for (let x = 0; x < canvas.width; x++) {
+      for (let x = 0; x < canvas.width; ++x) {
         const subpixels = borderPixels[y][x];
         if (subpixels !== undefined) {
           canvas.setPixel(x + rowOffset, averageSubpixels(subpixels, tiles));
@@ -425,9 +424,9 @@ function renderAntialiasedBorders(tiles, canvas, pixels) {
     }
   } else {
     // borders unknown - so we must calculate them
-    calculateNbrTileIndices(tiles, canvas, pixels);
-    for (let y = 0; y < canvas.height; y++) {
-      for (let x = 0; x < canvas.width; x++) {
+    calculateNbrTileIndexes(canvas, pixels);
+    for (let y = 0; y < canvas.height; ++y) {
+      for (let x = 0; x < canvas.width; ++x) {
         // determine the tiles to which each neighbor pixel belongs
         const nbrTileIndices = borderPixels[y][x];
         // if this is a border pixel, then sample subpixels
@@ -435,6 +434,8 @@ function renderAntialiasedBorders(tiles, canvas, pixels) {
           const pixelIndex = x + canvas.width * y;
           const subpixels = getSubpixelTileIndices(
               x, y, tiles, pixels[pixelIndex], nbrTileIndices);
+          // NOTE: this changes the definition of borderPixels - we now have
+          // borderPixels[y][x] = array of subpixel tileIndexes
           borderPixels[y][x] = subpixels;
           canvas.setPixel(pixelIndex, averageSubpixels(subpixels, tiles));
         }
@@ -445,6 +446,7 @@ function renderAntialiasedBorders(tiles, canvas, pixels) {
   }
 }
 
+/** Adds an element to an array if it's not already present. */
 const add = (arr, e) => {
   if (!arr.includes(e)) {
     arr.push(e);
@@ -452,31 +454,76 @@ const add = (arr, e) => {
   return arr;
 };
 
-function calculateNbrTileIndices(tiles, canvas, pixels) {
+/**
+ * Initializes borderPixels. Sets borderPixels[y][x] = array of neighboring tile
+ * indexes, or empty if all neighbors belong to the same tile.
+ */
+function calculateNbrTileIndexes(canvas, pixels) {
   if (borderPixels === undefined) {
     borderPixels = new Array(canvas.height);
   }
-  const widthMinusOne = canvas.width - 1;
-  for (let y = 0; y < canvas.height; y++) {
-    const row = borderPixels[y] = new Array(canvas.width);
-    for (let x = 0; x < widthMinusOne; x++) {
-      const pixelIndex = x + canvas.width * y;
-      if (pixels[pixelIndex] !== pixels[pixelIndex + 1]) {
-        row[x] = add(row[x] || [], pixels[pixelIndex + 1]);
-        row[x + 1] = [pixels[pixelIndex]];
+  const width = canvas.width;
+  const height = canvas.height;
+  // search for borders row by row
+  for (let y = 0; y < height; ++y) {
+    borderPixels[y] = new Array(width);
+    const rowOffset = width * y;
+    let left = 0;
+    while (left < width - 1) {
+      const leftPixelIndex = left + rowOffset;
+      const leftTileIndex = pixels[leftPixelIndex];
+      // search for tile border
+      let right = width - 2;
+      let rightPixelIndex = right + rowOffset;
+      if (pixels[rightPixelIndex] !== leftTileIndex) {
+        let step = Math.max((right - left) >> 1, 1);
+        do {
+          if (pixels[rightPixelIndex] === leftTileIndex) {
+            right += step;
+          } else {
+            right -= step;
+          }
+          rightPixelIndex = right + rowOffset;
+          if (step > 1) {
+            step >>= 1;
+          }
+        } while (pixels[rightPixelIndex] !== leftTileIndex ||
+                 pixels[rightPixelIndex + 1] === leftTileIndex);
       }
+      borderPixels[y][right] =
+          add(borderPixels[y][right] || [], pixels[rightPixelIndex + 1]);
+      borderPixels[y][right + 1] = [pixels[rightPixelIndex]];
+      left = right + 1;
     }
   }
-  const heightMinusOne = canvas.height - 1;
-  for (let x = 0; x < canvas.width; x++) {
-    for (let y = 0; y < heightMinusOne; y++) {
-      const pixelIndex = x + canvas.width * y;
-      if (pixels[pixelIndex] !== pixels[pixelIndex + canvas.width]) {
-        borderPixels[y][x] =
-            add(borderPixels[y][x] || [], pixels[pixelIndex + canvas.width]);
-        borderPixels[y + 1][x] =
-            add(borderPixels[y + 1][x] || [], pixels[pixelIndex]);
+  // search for borders column by column
+  for (let x = 0; x < width; ++x) {
+    let top = 0;
+    while (top < height - 1) {
+      const topTileIndex = pixels[x + width * top];
+      // search for tile border
+      let bottom = height - 2;
+      let bottomPixelIndex = x + width * bottom;
+      if (pixels[bottomPixelIndex] !== topTileIndex) {
+        let step = Math.max((bottom - top) >> 1, 1);
+        do {
+          if (pixels[bottomPixelIndex] === topTileIndex) {
+            bottom += step;
+          } else {
+            bottom -= step;
+          }
+          bottomPixelIndex = x + width * bottom;
+          if (step > 1) {
+            step >>= 1;
+          }
+        } while (pixels[bottomPixelIndex] !== topTileIndex ||
+                 pixels[bottomPixelIndex + width] === topTileIndex);
       }
+      borderPixels[bottom][x] =
+          add(borderPixels[bottom][x] || [], pixels[bottomPixelIndex + width]);
+      borderPixels[bottom + 1][x] =
+          add(borderPixels[bottom + 1][x] || [], pixels[bottomPixelIndex]);
+      top = bottom + 1;
     }
   }
 }
@@ -487,6 +534,7 @@ const SUBPIXEL_OFFSETS = [
   [-1/3,  1/3], [0,  1/3], [1/3,  1/3],
 ];
 
+/** Calculates tileIndex for multiple locations within a pixel. */
 function getSubpixelTileIndices(x, y, tiles, tileIndex, nbrTileIndices) {
   const tile = tiles[tileIndex];
   return SUBPIXEL_OFFSETS.map(([dx, dy]) => {
@@ -494,7 +542,7 @@ function getSubpixelTileIndices(x, y, tiles, tileIndex, nbrTileIndices) {
     const subpixelY = y + dy;
     let closestTileIndex = tileIndex;
     let minDist = distance(subpixelX, subpixelY, tile.x, tile.y);
-    for (let i = 0; i < nbrTileIndices.length; i++) {
+    for (let i = 0; i < nbrTileIndices.length; ++i) {
       const index = nbrTileIndices[i];
       const nbrTile = tiles[index];
       const dist = distance(subpixelX, subpixelY, nbrTile.x, nbrTile.y);
