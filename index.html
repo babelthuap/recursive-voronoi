@@ -11,9 +11,19 @@
       margin: 0;
       padding: 0;
     }
+    #upload {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+    }
+    canvas {
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-<script type="module" src="main.js"></script>
+  <input id="upload" type="file" accept="image/png, image/jpeg"></div>
+  <div id="canvas"></div>
+  <script type="module" src="main.js"></script>
 </body>
 </html>
