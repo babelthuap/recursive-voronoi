@@ -44,6 +44,19 @@ export function createCanvas(width, height) {
     repaint() {
       ctx.putImageData(imageData, 0, 0);
     },
+    /** Draws a circle. No need to repaint. */
+    drawCircle(x, y, r, color = '#000') {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    },
+    /** Gets the RGB hex value of the specified pixel. */
+    getPixel(pixelIndex) {
+      const red = pixelIndex << 2;
+      return (data[red] << 16) | (data[red + 1] << 8) | data[red + 2];
+    },
     /** Sets the given pixel to the given color. Does not repaint the canvas. */
     setPixel(pixelIndex, rgb) {
       const red = pixelIndex << 2;
@@ -57,20 +70,6 @@ export function createCanvas(width, height) {
      */
     setRowHorizontal(leftIndex, rightIndex, rgb) {
       for (let i = (leftIndex << 2); i < (rightIndex << 2) + 1; i += 4) {
-        data[i] = rgb[0];
-        data[i + 1] = rgb[1];
-        data[i + 2] = rgb[2];
-      }
-    },
-    /**
-     * Sets all the pixels in the line from (x, minY) - inclusive - to (x, maxY)
-     * - exclusive - to the given color. Does not repaint the canvas.
-     */
-    setRowVertical(x, minY, maxY, rgb) {
-      const startIndex = (x + width * minY) << 2;
-      const endIndex = (x + width * maxY) << 2;
-      const step = width << 2;
-      for (let i = startIndex; i < endIndex; i += step) {
         data[i] = rgb[0];
         data[i + 1] = rgb[1];
         data[i + 2] = rgb[2];

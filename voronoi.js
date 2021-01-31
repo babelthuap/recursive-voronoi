@@ -6,55 +6,77 @@ import {distance, rand} from './util.js';
 let tilesArray, colorsArray, pixelsArray, unsetId;
 
 /** Draws a random Voronoi diagram. */
-export function drawRandomVoronoiDiagram(
-    numTiles, antialias = true, width = window.innerWidth,
-    height = window.innerHeight, container = document.body) {
+export function drawRandomVoronoiDiagram(numTiles, {
+  antialias = true,
+  container = document.body,
+  displayCapitals = false,
+  width = window.innerWidth,
+  height = window.innerHeight,
+}) {
   console.log('');
   console.time('drawRandomVoronoiDiagram_' + numTiles);
 
   const tiles = placeTiles(numTiles, width, height);
   const canvas = createCanvas(width, height);
   const pixels = calculateAndRenderPixels(tiles, canvas);
-
-  canvas.repaint();
   canvas.attachToDom(container);
 
   const state = {tiles, canvas, pixels};
-  if (antialias) {
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        renderAntialiasedBorders(state);
-        canvas.repaint();
-      });
-    }, 0);
-  }
+  postprocess(state, {antialias, displayCapitals});
 
   console.timeEnd('drawRandomVoronoiDiagram_' + numTiles);
   return state;
 }
 
 /** Reassigns random colors to each tile and then re-renders. */
-export function recolor(state) {
+export function recolor(state, options) {
   console.time('recolor');
-  const {tiles, canvas, pixels} = state;
-  for (const tile of tiles) {
+  for (const tile of state.tiles) {
     tile.color[0] = rand(256);
     tile.color[1] = rand(256);
     tile.color[2] = rand(256);
   }
+  rerender(state, options);
+  console.timeEnd('recolor');
+}
+
+/** Rerenders given an existing state. */
+export function rerender(state, options) {
+  const {tiles, canvas, pixels} = state;
   renderRecursive(
       {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
       {minX: 0, minY: 0, maxX: canvas.width - 1, maxY: canvas.height - 1});
-  canvas.repaint();
+  postprocess(state, options);
+}
 
-  setTimeout(() => {
-    requestAnimationFrame(() => {
-      renderAntialiasedBorders(state);
-      canvas.repaint();
-    });
-  }, 0);
+/**
+ * After a render, repaints canvas then optionally antialiases and displays
+ * tile capitals.
+ */
+function postprocess(state, {antialias, displayCapitals}) {
+  state.canvas.repaint();
+  if (displayCapitals) {
+    drawCapitals(state);
+  }
+  if (antialias) {
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        renderAntialiasedBorders(state);
+        state.canvas.repaint();
+        if (displayCapitals) {
+          drawCapitals(state);
+        }
+      });
+    }, 0);
+  }
+}
 
-  console.timeEnd('recolor');
+/** Draws a dot to represent each capital. */
+function drawCapitals({tiles, canvas}) {
+  for (let i = 0; i < tiles.length; ++i) {
+    const tile = tiles[i];
+    canvas.drawCircle(tile.x, tile.y, /* r= */ 5);
+  }
 }
 
 /** Places tile capitals randomly. */
@@ -109,7 +131,7 @@ function calculateAndRenderPixels(tiles, canvas) {
   unsetId = tiles.length < 0xff ? 0xff : 0xffff;
   const pixels = pixelsArray.fill(unsetId);
 
-  // seed pixels array by marking each capitol; this helps when numTiles is
+  // seed pixels array by marking each capital; this helps when numTiles is
   // extremely large
   for (let tileIndex = 0; tileIndex < tiles.length; ++tileIndex) {
     const tile = tiles[tileIndex];
@@ -260,7 +282,7 @@ function renderRecursive(state, {minX, minY, maxX, maxY}) {
 }
 
 /**
- * Splits tilesSubset into left and right subsets based on their capitols'
+ * Splits tilesSubset into left and right subsets based on their capitals'
  * coordinates.
  */
 function splitTilesSubsetVertical(tilesSubset, middleX) {
@@ -277,7 +299,7 @@ function splitTilesSubsetVertical(tilesSubset, middleX) {
 }
 
 /**
- * Splits tilesSubset into top and bottom subsets based on their capitols'
+ * Splits tilesSubset into top and bottom subsets based on their capitals'
  * coordinates.
  */
 function splitTilesSubsetHorizontal(tilesSubset, middleY) {
