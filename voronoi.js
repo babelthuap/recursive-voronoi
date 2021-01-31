@@ -129,7 +129,7 @@ function renderRecursive(state, {minX, minY, maxX, maxY}) {
     // this box is a solid color! we can stop recursing
     const tile = tilesSubset.values().next().value;
     const color = tile.color;
-    for (let y = minY; y < maxY; ++y) {
+    for (let y = minY; y <= maxY; ++y) {
       const rowOffset = canvas.width * y;
       canvas.setRowHorizontal(minX + rowOffset, maxX + rowOffset, color);
     }
@@ -138,13 +138,13 @@ function renderRecursive(state, {minX, minY, maxX, maxY}) {
 
   if (boxWidth < MIN_SIZE || boxHeight < MIN_SIZE) {
     // fill in box; stop recursing
-    for (let y = minY; y < maxY; ++y) {
+    for (let y = minY; y <= maxY; ++y) {
       const rowOffset = canvas.width * y;
       let left = minX;
 
       // fill in un-colored pixels: starting at left, search for the border with
       // next color in this row, then fill the pixels in between
-      while (left < maxX) {
+      while (left <= maxX) {
         const leftPixelIndex = left + rowOffset;
         const leftTileIndex = calculatePixel(left, y, leftPixelIndex, state);
         let right = maxX;
@@ -273,17 +273,11 @@ function splitTilesSubsetHorizontal(tilesSubset, middleY) {
  */
 function getBoundaryTilesVertical(
     x, minY, maxY, state, boundaryTiles = new Set()) {
-  if (x === 0) {
-    // don't do outermost left boundary
-    return;
-  }
   const {allTiles, canvas, pixels} = state;
   const width = canvas.width;
 
-  // cut off 1 pixel from the start and end because those will be handled by
-  // horizontal boundaries
-  let top = minY + 1;
-  while (top < maxY) {
+  let top = minY;
+  while (top <= maxY) {
     const topTileIndex = calculatePixel(x, top, x + width * top, state);
     boundaryTiles.add(allTiles[topTileIndex]);
 
@@ -320,10 +314,6 @@ function getBoundaryTilesVertical(
  */
 function getBoundaryTilesHorizontal(
     y, minX, maxX, state, boundaryTiles = new Set()) {
-  if (y === 0) {
-    // don't do outermost top boundary
-    return;
-  }
   const {allTiles, canvas, pixels} = state;
   const rowOffset = canvas.width * y;
   let left = minX;
