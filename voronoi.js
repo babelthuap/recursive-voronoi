@@ -45,9 +45,16 @@ export function recolor(state) {
   renderRecursive(
       {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
       {minX: 0, minY: 0, maxX: canvas.width - 1, maxY: canvas.height - 1});
-  console.timeEnd('recolor');
-  renderAntialiasedBorders(state);
   canvas.repaint();
+
+  setTimeout(() => {
+    requestAnimationFrame(() => {
+      renderAntialiasedBorders(state);
+      canvas.repaint();
+    });
+  }, 0);
+
+  console.timeEnd('recolor');
 }
 
 /** Places tile capitals randomly. */
