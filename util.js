@@ -75,26 +75,42 @@ export function averageSubpixels(subpixels, tiles) {
 }
 
 /** Loads pixel data from an image stretched to the given dimensions. */
-export function loadImagePixelData(imageUrl, width, height) {
-  return new Promise(resolve => {
-    const imageCanvas = document.createElement('canvas');
-    imageCanvas.width = width;
-    imageCanvas.height = height;
-    const image = new Image();
-    image.crossOrigin = 'Anonymous';
-    image.src = imageUrl;
-    image.addEventListener('load', () => {
-      // stretch image onto imageCanvas
-      const ctx = imageCanvas.getContext('2d');
-      ctx.drawImage(
-          image,
-          /* source: */ 0, 0, image.width, image.height,
-          /* destination: */ 0, 0, width, height);
-      const imgPixelData = ctx.getImageData(0, 0, width, height).data;
-      resolve(imgPixelData);
+export const loadImagePixelData = (() => {
+  let cachedImageUrl;
+  let cachedResolutions = {};
+  return (imageUrl, width, height) => {
+    const key = `${width}x${height}`;
+    // check whether the requested imgPixelData is cached
+    if (imageUrl === cachedImageUrl) {
+      if (key in cachedResolutions) {
+        return Promise.resolve(cachedResolutions[key]);
+      }
+    } else {
+      cachedImageUrl = imageUrl;
+      cachedResolutions = {};
+    }
+    // fresh load
+    return new Promise(resolve => {
+      const imageCanvas = document.createElement('canvas');
+      imageCanvas.width = width;
+      imageCanvas.height = height;
+      const image = new Image();
+      image.crossOrigin = 'Anonymous';
+      image.src = imageUrl;
+      image.addEventListener('load', () => {
+        // stretch image onto imageCanvas
+        const ctx = imageCanvas.getContext('2d');
+        ctx.drawImage(
+            image,
+            /* source: */ 0, 0, image.width, image.height,
+            /* destination: */ 0, 0, width, height);
+        const imgPixelData = ctx.getImageData(0, 0, width, height).data;
+        cachedResolutions[key] = imgPixelData;
+        resolve(imgPixelData);
+      });
     });
-  });
-}
+  };
+})();
 
 /**
  * sorts a lattice of points by their distance from the origin, breaking ties by
