@@ -99,7 +99,7 @@ function calculateAndRenderPixels(tiles, canvas) {
   }
 
   // Divide and conquer!
-  const state = {allTiles: tiles, tilesSubset: tiles, canvas, pixels};
+  const state = {allTiles: tiles, tilesSubset: new Set(tiles), canvas, pixels};
   renderRecursive(state, {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
   console.timeEnd('calculateAndRenderPixels');
   return pixels;
@@ -125,10 +125,10 @@ function renderRecursive(state, {minX, minY, maxX, maxY}) {
   const boxWidth = maxX - minX + 1;
   const boxHeight = maxY - minY + 1;
 
-  if (tilesSubset.length === 1) {
+  if (tilesSubset.size === 1) {
     // this box is a solid color! we can stop recursing
-    const color = tilesSubset[0].color;
-    const tileIndex = tilesSubset[0].i;
+    const tile = tilesSubset.values().next().value;
+    const color = tile.color;
     for (let y = minY; y < maxY; ++y) {
       const rowOffset = canvas.width * y;
       canvas.setRowHorizontal(minX + rowOffset, maxX + rowOffset, color);
@@ -185,50 +185,86 @@ function renderRecursive(state, {minX, minY, maxX, maxY}) {
     sub1 = {minX: minX, minY: minY, maxX: middleX, maxY: maxY};  // left half
     sub2 = {minX: middleX, minY: minY, maxX: maxX, maxY: maxY};  // right half
     // calculate middle boundary tiles
-    const midBoundary =
-        [...getBoundaryTilesVertical(middleX, minY, maxY, state)];
+    const midBoundary = getBoundaryTilesVertical(middleX, minY, maxY, state);
+    // split tiles into left and right subsets
+    [tilesSubset1, tilesSubset2] =
+        splitTilesSubsetVertical(tilesSubset, middleX);
     // calculate boundary tiles for left half
-    const leftHalfTileIndexes = new Set(midBoundary);
-    getBoundaryTilesVertical(minX, minY, maxY, state, leftHalfTileIndexes);
-    getBoundaryTilesHorizontal(minY, minX, middleX, state, leftHalfTileIndexes);
-    getBoundaryTilesHorizontal(maxY, minX, middleX, state, leftHalfTileIndexes);
-    addTilesFromBox(tilesSubset, leftHalfTileIndexes, sub1);
-    tilesSubset1 = [...leftHalfTileIndexes].map(i => allTiles[i]);
+    getBoundaryTilesVertical(minX, minY, maxY, state, tilesSubset1);
+    getBoundaryTilesHorizontal(minY, minX, middleX, state, tilesSubset1);
+    getBoundaryTilesHorizontal(maxY, minX, middleX, state, tilesSubset1);
+    for (const tile of midBoundary) {
+      tilesSubset1.add(tile);
+    }
     // calculate boundary tiles for right half
-    const rightHalfTileIndexes = new Set(midBoundary);
-    getBoundaryTilesVertical(maxX, minY, maxY, state, rightHalfTileIndexes);
-    getBoundaryTilesHorizontal(
-        minY, middleX, maxX, state, rightHalfTileIndexes);
-    getBoundaryTilesHorizontal(
-        maxY, middleX, maxX, state, rightHalfTileIndexes);
-    addTilesFromBox(tilesSubset, rightHalfTileIndexes, sub2);
-    tilesSubset2 = [...rightHalfTileIndexes].map(i => allTiles[i]);
+    getBoundaryTilesVertical(maxX, minY, maxY, state, tilesSubset2);
+    getBoundaryTilesHorizontal(minY, middleX, maxX, state, tilesSubset2);
+    getBoundaryTilesHorizontal(maxY, middleX, maxX, state, tilesSubset2);
+    for (const tile of midBoundary) {
+      tilesSubset2.add(tile);
+    }
   } else {
     // CUT HORIZONTALLY
     const middleY = (minY + maxY) >> 1;
     sub1 = {minX: minX, minY: minY, maxX: maxX, maxY: middleY};  // top half
     sub2 = {minX: minX, minY: middleY, maxX: maxX, maxY: maxY};  // bottom half
     // calculate middle boundary tiles
-    const midBoundary =
-        [...getBoundaryTilesHorizontal(middleY, minX, maxX, state)];
+    const midBoundary = getBoundaryTilesHorizontal(middleY, minX, maxX, state);
+    // split tiles into top and bottom subsets
+    [tilesSubset1, tilesSubset2] =
+        splitTilesSubsetHorizontal(tilesSubset, middleY);
     // calculate boundary tiles for top half
-    const topHalfTileIndexes = new Set(midBoundary);
-    getBoundaryTilesHorizontal(minY, minX, maxX, state, topHalfTileIndexes);
-    getBoundaryTilesVertical(minX, minY, middleY, state, topHalfTileIndexes);
-    getBoundaryTilesVertical(maxX, minY, middleY, state, topHalfTileIndexes);
-    addTilesFromBox(tilesSubset, topHalfTileIndexes, sub1);
-    tilesSubset1 = [...topHalfTileIndexes].map(i => allTiles[i]);
+    getBoundaryTilesHorizontal(minY, minX, maxX, state, tilesSubset1);
+    getBoundaryTilesVertical(minX, minY, middleY, state, tilesSubset1);
+    getBoundaryTilesVertical(maxX, minY, middleY, state, tilesSubset1);
+    for (const tile of midBoundary) {
+      tilesSubset1.add(tile);
+    }
     // calculate boundary tiles for bottom half
-    const bottomHalfTileIndexes = new Set(midBoundary);
-    getBoundaryTilesHorizontal(maxY, minX, maxX, state, bottomHalfTileIndexes);
-    getBoundaryTilesVertical(minX, middleY, maxY, state, bottomHalfTileIndexes);
-    getBoundaryTilesVertical(maxX, middleY, maxY, state, bottomHalfTileIndexes);
-    addTilesFromBox(tilesSubset, bottomHalfTileIndexes, sub2);
-    tilesSubset2 = [...bottomHalfTileIndexes].map(i => allTiles[i]);
+    getBoundaryTilesHorizontal(maxY, minX, maxX, state, tilesSubset2);
+    getBoundaryTilesVertical(minX, middleY, maxY, state, tilesSubset2);
+    getBoundaryTilesVertical(maxX, middleY, maxY, state, tilesSubset2);
+    for (const tile of midBoundary) {
+      tilesSubset2.add(tile);
+    }
   }
 
   renderRecursive({allTiles, tilesSubset: tilesSubset1, canvas, pixels}, sub1);
   renderRecursive({allTiles, tilesSubset: tilesSubset2, canvas, pixels}, sub2);
+}
+
+/**
+ * Splits tilesSubset into left and right subsets based on their capitols'
+ * coordinates.
+ */
+function splitTilesSubsetVertical(tilesSubset, middleX) {
+  const leftTilesSubset = new Set();
+  const rightTilesSubset = new Set();
+  for (const tile of tilesSubset) {
+    if (tile.x < middleX) {
+      leftTilesSubset.add(tile);
+    } else {
+      rightTilesSubset.add(tile);
+    }
+  }
+  return [leftTilesSubset, rightTilesSubset];
+}
+
+/**
+ * Splits tilesSubset into top and bottom subsets based on their capitols'
+ * coordinates.
+ */
+function splitTilesSubsetHorizontal(tilesSubset, middleY) {
+  const topTilesSubset = new Set();
+  const bottomTilesSubset = new Set();
+  for (const tile of tilesSubset) {
+    if (tile.y < middleY) {
+      topTilesSubset.add(tile);
+    } else {
+      bottomTilesSubset.add(tile);
+    }
+  }
+  return [topTilesSubset, bottomTilesSubset];
 }
 
 /**
@@ -241,15 +277,15 @@ function getBoundaryTilesVertical(
     // don't do outermost left boundary
     return;
   }
-  const {canvas, pixels} = state;
+  const {allTiles, canvas, pixels} = state;
   const width = canvas.width;
-  let top = minY;
 
-  // cut off 1 pixel from the end because that will be handled by horizontal
-  // boundaries
+  // cut off 1 pixel from the start and end because those will be handled by
+  // horizontal boundaries
+  let top = minY + 1;
   while (top < maxY) {
     const topTileIndex = calculatePixel(x, top, x + width * top, state);
-    boundaryTiles.add(topTileIndex);
+    boundaryTiles.add(allTiles[topTileIndex]);
 
     // fill in un-colored pixels: starting at top, search for the border with
     // next color in this row, then fill the pixels in between
@@ -295,7 +331,8 @@ function getBoundaryTilesHorizontal(
   while (left <= maxX) {
     const leftPixelIndex = left + rowOffset;
     const leftTileIndex = calculatePixel(left, y, leftPixelIndex, state);
-    boundaryTiles.add(leftTileIndex);
+    const leftTile = allTiles[leftTileIndex];
+    boundaryTiles.add(leftTile);
 
     // fill in un-colored pixels: starting at left, search for the border with
     // next color in this row, then fill the pixels in between
@@ -320,25 +357,11 @@ function getBoundaryTilesHorizontal(
     }
 
     // fill line of same-color pixels
-    const color = allTiles[leftTileIndex].color;
-    canvas.setRowHorizontal(leftPixelIndex, rightPixelIndex, color);
+    canvas.setRowHorizontal(leftPixelIndex, rightPixelIndex, leftTile.color);
 
     left = right + 1;
   }
   return boundaryTiles;
-}
-
-/**
- * Adds to `tileIndexSet` the tileIndexes from the subset of `tiles` whose
- * capitals are inside the given bounding box.
- */
-function addTilesFromBox(tiles, tileIndexSet, {minX, minY, maxX, maxY}) {
-  // TODO: store capitals in a tree for faster retrieval
-  for (const tile of tiles) {
-    if (minX < tile.x && tile.x < maxX && minY < tile.y && tile.y < maxY) {
-      tileIndexSet.add(tile.i);
-    }
-  }
 }
 
 /**
