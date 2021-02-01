@@ -8,7 +8,7 @@
 </head>
 <body>
   <div id="menu">
-    <div id="hamburger">
+    <div id="hamburger" title="menu">
       <div></div><div></div><div></div>
     </div>
     <div id="controls">
@@ -20,10 +20,14 @@
         number of tiles: <input id="numTiles" type="number" value="100">
       </div>
       <div class="control-row">
-        <button id="regenerate">regenerate</button> (hotkey: s)
+        <button id="regenerate">regenerate</button>
+        <span class="desktop">(hotkey: s)</span>
+        <span class="mobile">(tap)</span>
       </div>
       <div class="control-row">
-        <button id="recolor">recolor</button> (hotkey: c)
+        <button id="recolor">recolor</button>
+        <span class="desktop">(hotkey: c)</span>
+        <span class="mobile">(long press)</span>
       </div>
     </div>
   </div>

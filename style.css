@@ -76,6 +76,19 @@ body {
   font-size: 20px;
 }
 
+.control-row .mobile {
+  display: none;
+}
+
+@media (pointer: none) {
+  .control-row .desktop {
+    display: none;
+  }
+  .control-row .mobile {
+    display: unset;
+  }
+}
+
 #canvas {
   height: 100vh;
   width: 100vw;
