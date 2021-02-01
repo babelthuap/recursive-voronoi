@@ -4,20 +4,22 @@ const URL_PARAMS = new URLSearchParams(window.location.search);
 const TEST_MODE = URL_PARAMS.has('test');
 
 const El = {
+  ANTIALIAS: document.getElementById('antialias'),
   CANVAS_CONTAINER: document.getElementById('canvas'),
   CONTROLS: document.getElementById('controls'),
   HAMBURGER: document.getElementById('hamburger'),
   NUM_TILES: document.getElementById('numTiles'),
   RECOLOR: document.getElementById('recolor'),
   REGENERATE: document.getElementById('regenerate'),
+  DISPLAY_CAPITALS: document.getElementById('displayCapitals'),
   UPLOAD: document.getElementById('upload'),
 };
 
 // Render options
 const options = {
-  antialias: !TEST_MODE,
+  antialias: !TEST_MODE && El.ANTIALIAS.checked,
   container: El.CANVAS_CONTAINER,
-  displayCapitals: false,
+  displayCapitals: El.DISPLAY_CAPITALS.checked,
   imageUrl: null,
 };
 
@@ -68,6 +70,18 @@ El.REGENERATE.addEventListener('mousedown', () => {
 El.RECOLOR.addEventListener('mousedown', () => {
   doRender(() => recolor(state, options));
 });
+El.DISPLAY_CAPITALS.addEventListener('change', () => {
+  doRender(() => {
+    options.displayCapitals = El.DISPLAY_CAPITALS.checked;
+    rerender(state, options);
+  });
+});
+El.ANTIALIAS.addEventListener('change', () => {
+  doRender(() => {
+    options.antialias = El.ANTIALIAS.checked;
+    rerender(state, options);
+  });
+});
 
 // Disable context menu so we can handle right click
 options.container.addEventListener('contextmenu', event => {
@@ -94,6 +108,7 @@ document.addEventListener('keydown', event => {
     switch (event.key) {
       case 'a':
         options.antialias = !options.antialias;
+        El.ANTIALIAS.checked = options.antialias;
         rerender(state, options);
         break;
       case 'c':
@@ -104,6 +119,7 @@ document.addEventListener('keydown', event => {
         break;
       case 't':
         options.displayCapitals = !options.displayCapitals;
+        El.DISPLAY_CAPITALS.checked = options.displayCapitals;
         rerender(state, options);
         break;
     }

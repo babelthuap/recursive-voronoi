@@ -54,7 +54,7 @@ body {
 
 #upload {
   font-size: 14px;
-  width: 250px;
+  width: 256px;
 }
 
 #numTiles {
@@ -74,6 +74,12 @@ body {
   color: #000;
   font-family: Courier, monospace;
   font-size: 20px;
+}
+
+.control-row input[type="checkbox"] {
+  margin: 0;
+  height: 16px;
+  width: 16px;
 }
 
 .control-row .mobile {
