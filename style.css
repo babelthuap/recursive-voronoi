@@ -80,7 +80,7 @@ body {
   display: none;
 }
 
-@media (pointer: none) {
+@media (max-width: 768px) {
   .control-row .desktop {
     display: none;
   }
