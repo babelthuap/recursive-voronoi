@@ -1,20 +1,29 @@
 import {drawRandomVoronoiDiagram, recolor, rerender} from './voronoi.js';
 
 const URL_PARAMS = new URLSearchParams(window.location.search);
-const NUM_TILES = parseInt(URL_PARAMS.get('n'), 10) ||
-    Math.round(window.innerWidth * window.innerHeight / 10_000);
 const TEST_MODE = URL_PARAMS.has('test');
+
+const El = {
+  CANVAS_CONTAINER: document.getElementById('canvas'),
+  CONTROLS: document.getElementById('controls'),
+  HAMBURGER: document.getElementById('hamburger'),
+  NUM_TILES: document.getElementById('numTiles'),
+  RECOLOR: document.getElementById('recolor'),
+  REGENERATE: document.getElementById('regenerate'),
+  UPLOAD: document.getElementById('upload'),
+};
 
 // Render options
 const options = {
   antialias: !TEST_MODE,
-  container: document.getElementById('canvas'),
+  container: El.CANVAS_CONTAINER,
   displayCapitals: false,
   imageUrl: null,
 };
 
 // Hold on to the Voronoi diagram state in order to recolor it (etc.)
-let state = drawRandomVoronoiDiagram(NUM_TILES, options);
+let numTiles = parseInt(El.NUM_TILES.value);
+let state = drawRandomVoronoiDiagram(numTiles, options);
 
 /** Invokes fn if there's not already a render in progress. */
 const doRender = (() => {
@@ -28,14 +37,36 @@ const doRender = (() => {
   };
 })();
 
-// Handle image upload
-document.getElementById('upload').addEventListener('change', function() {
+// Handle menu
+let expandMenu = !El.CONTROLS.classList.contains('hidden');
+El.HAMBURGER.addEventListener('mousedown', () => {
+  expandMenu = !expandMenu;
+  if (expandMenu) {
+    El.CONTROLS.classList.remove('hidden');
+  } else {
+    El.CONTROLS.classList.add('hidden');
+  }
+});
+El.UPLOAD.addEventListener('change', function() {
   doRender(() => {
     if (this.files && this.files[0]) {
       options.imageUrl = URL.createObjectURL(this.files[0]);
       rerender(state, options);
     }
   });
+});
+// TODO
+// El.NUM_TILES.addEventListener('change', () => {
+//   const value = parseInt(El.NUM_TILES.value);
+//   if (value > 0) {
+//     numTiles = value;
+//   }
+// });
+El.REGENERATE.addEventListener('mousedown', () => {
+  doRender(() => state = drawRandomVoronoiDiagram(numTiles, options));
+});
+El.RECOLOR.addEventListener('mousedown', () => {
+  doRender(() => recolor(state, options));
 });
 
 // Disable context menu so we can handle right click
@@ -52,7 +83,7 @@ options.container.addEventListener('mousedown', event => {
     if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey) {
       recolor(state, options);
     } else {
-      state = drawRandomVoronoiDiagram(NUM_TILES, options);
+      state = drawRandomVoronoiDiagram(numTiles, options);
     }
   });
 });
@@ -69,7 +100,7 @@ document.addEventListener('keydown', event => {
         recolor(state, options);
         break;
       case 's':
-        state = drawRandomVoronoiDiagram(NUM_TILES, options);
+        state = drawRandomVoronoiDiagram(numTiles, options);
         break;
       case 't':
         options.displayCapitals = !options.displayCapitals;
@@ -98,7 +129,7 @@ async function test(iterations) {
   for (let i = 0; i < iterations; i++) {
     const s = performance.now();
     state = drawRandomVoronoiDiagram(
-        NUM_TILES, {antialias: false, displayCapitals: false});
+        numTiles, {antialias: false, displayCapitals: false});
     const d = performance.now() - s;
     t.push(d);
     await new Promise(resolve => requestAnimationFrame(resolve));

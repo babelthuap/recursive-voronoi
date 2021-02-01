@@ -4,26 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Recursive Voronoi</title>
-  <style>
-    body {
-      background-color: #000;
-      height: 100vh;
-      margin: 0;
-      padding: 0;
-    }
-    #upload {
-      position: fixed;
-      top: 8px;
-      left: 8px;
-    }
-    canvas {
-      cursor: pointer;
-    }
-  </style>
+  <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
-  <input id="upload" type="file" accept="image/png, image/jpeg"></div>
+  <div id="menu">
+    <div id="hamburger">
+      <div></div><div></div><div></div>
+    </div>
+    <div id="controls">
+      <div class="control-row">
+        image: <input id="upload" type="file" accept="image/png, image/jpeg">
+      </div>
+      <!-- TODO: -->
+      <div class="control-row" style="display: none;">
+        number of tiles: <input id="numTiles" type="number" value="100">
+      </div>
+      <div class="control-row">
+        <button id="regenerate">regenerate</button> (hotkey: s)
+      </div>
+      <div class="control-row">
+        <button id="recolor">recolor</button> (hotkey: c)
+      </div>
+    </div>
+  </div>
   <div id="canvas"></div>
+  <script>
+    document.getElementById('numTiles').value =
+        parseInt(new URLSearchParams(window.location.search).get('n')) ||
+        Math.round(window.innerWidth * window.innerHeight / 10_000);
+  </script>
   <script type="module" src="main.js"></script>
 </body>
 </html>

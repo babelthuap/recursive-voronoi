@@ -1,0 +1,85 @@
+body {
+  background-color: #000;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#menu {
+  left: 0;
+  position: fixed;
+  top: 0;
+  z-index: 1;
+}
+
+#hamburger {
+  cursor: pointer;
+  padding: 16px;
+  width: 42px;
+}
+
+#hamburger > div {
+  background-color: #fff;
+  border-radius: 4px;
+  border: 1px solid #000;
+  height: 4px;
+  margin: 4px;
+  width: 32px;
+}
+
+#controls {
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  border: 2px solid #bbb;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  font-family: Courier, monospace;
+  font-size: 16px;
+  font-size: 18px;
+  font-weight: bold;
+  justify-content: center;
+  margin: 0 16px;
+  padding: 4px 8px;
+}
+
+#controls > * {
+  margin: 8px 0;
+  z-index: 1;
+}
+
+#controls.hidden {
+  display: none;
+}
+
+#upload {
+  font-size: 14px;
+  width: 250px;
+}
+
+#numTiles {
+  font-size: 16px;
+  font-family: Courier, monospace;
+  width: 72px;
+}
+
+.control-row {
+  padding: 4px;
+  user-select: none;
+}
+
+.control-row button {
+  background-color: #fff;
+  border-radius: 4px;
+  color: #000;
+  font-family: Courier, monospace;
+  font-size: 20px;
+}
+
+#canvas {
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  left: 0;
+  top: 0;
+}
