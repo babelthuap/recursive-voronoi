@@ -145,10 +145,8 @@ function renderImage(state, options) {
 function placeTiles(numTiles, width, height) {
   console.time('placeTiles');
 
-  if (!tilesArray) {
+  if (!tilesArray || tilesArray.length !== numTiles) {
     tilesArray = new Array(numTiles);
-  } else if (tilesArray.length !== numTiles) {
-    tilesArray.length === numTiles;
   }
   const tiles = tilesArray;
 
