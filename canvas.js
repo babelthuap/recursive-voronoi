@@ -37,6 +37,10 @@ export function createCanvas(width, height) {
         container.appendChild(el);
       }
     },
+    /** Pass-through */
+    toDataURL(...args) {
+      return el.toDataURL(...args);
+    },
     /**
      * Repaints the canvas, which will display any modifications made via
      * setPixel.

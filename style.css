@@ -81,10 +81,14 @@ body {
   margin-left: 8px;
 }
 
-.control-row a {
+#download {
+  color: #fff;
+}
+
+.control-row .link {
   color: #fff;
   float: right;
-  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 .control-row input[type="checkbox"] {

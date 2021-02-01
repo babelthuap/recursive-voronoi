@@ -7,6 +7,7 @@ const El = {
   ANTIALIAS: document.getElementById('antialias'),
   CANVAS_CONTAINER: document.getElementById('canvas'),
   CONTROLS: document.getElementById('controls'),
+  DOWNLOAD: document.getElementById('download'),
   HAMBURGER: document.getElementById('hamburger'),
   NUM_TILES: document.getElementById('numTiles'),
   RECOLOR: document.getElementById('recolor'),
@@ -82,6 +83,11 @@ El.ANTIALIAS.addEventListener('change', () => {
     options.antialias = El.ANTIALIAS.checked;
     rerender(state, options);
   });
+});
+El.DOWNLOAD.addEventListener('click', () => {
+  El.DOWNLOAD.download = `voronoi_${Date.now()}.png`;
+  El.DOWNLOAD.href =
+      state.canvas.toDataURL().replace('image/png', 'image/octet-stream');
 });
 
 // Disable context menu so we can handle right click
