@@ -85,8 +85,18 @@ function postprocess(state, {antialias, displayCapitals}) {
 function drawCapitals({tiles, canvas}) {
   for (let i = 0; i < tiles.length; ++i) {
     const tile = tiles[i];
-    canvas.drawCircle(tile.x, tile.y, /* r= */ 5);
+    if (relativeLuminance(tile.color) > 1275000 /* 50% luminance */) {
+      canvas.drawCircle(tile.x, tile.y, /* r= */ 5, '#000');
+    } else {
+      canvas.drawCircle(tile.x, tile.y, /* r= */ 5, '#fff');
+    }
   }
+}
+
+/** Returns relative luminance scaled to [0, 2550000] */
+function relativeLuminance(color) {
+  // see https://en.wikipedia.org/wiki/Relative_luminance
+  return 2126 * color[0] + 7152 * color[1] + 722 * color[2];
 }
 
 /** Recolors tiles to approximate the given image. */
@@ -98,7 +108,7 @@ function renderImage(state, options) {
   const height = canvas.height;
 
   loadImagePixelData(options.imageUrl, width, height).then(imgPixelData => {
-    // determine new tile colors
+    // determine new tile colors by averaging the image color over each tile
     const newTileColors = tiles.map(tile => {
       return {count: 0, rgb: new Uint32Array(3)};
     });
