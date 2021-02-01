@@ -81,6 +81,12 @@ body {
   margin-left: 8px;
 }
 
+.control-row a {
+  color: #fff;
+  float: right;
+  margin-top: 4px;
+}
+
 .control-row input[type="checkbox"] {
   margin: 0;
   height: 16px;

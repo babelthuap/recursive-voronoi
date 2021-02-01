@@ -15,9 +15,8 @@
       <div class="control-row">
         image: <input id="upload" type="file" accept="image/png, image/jpeg">
       </div>
-      <!-- TODO: -->
-      <div class="control-row" style="display: none;">
-        number of tiles: <input id="numTiles" type="number" value="100">
+      <div class="control-row">
+        number of tiles: <input id="numTiles" type="number">
       </div>
       <div class="control-row">
         <button id="regenerate">regenerate</button>
@@ -36,6 +35,18 @@
       <div class="control-row">
         <label>antialias? <input id="antialias" type="checkbox" checked></label>
         <span class="desktop">(hotkey: a)</span>
+      </div>
+      <div class="control-row">
+        <div>
+          <a target="_blank" href="https://en.wikipedia.org/wiki/Voronoi_diagram">
+            background (Wikipedia)
+          </a>
+        </div>
+        <div>
+          <a target="_blank" href="https://github.com/babelthuap/recursive-voronoi">
+            source code
+          </a>
+        </div>
       </div>
     </div>
   </div>
