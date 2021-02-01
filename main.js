@@ -41,14 +41,15 @@ const doRender = (() => {
 
 // Handle menu
 let expandMenu = !El.CONTROLS.classList.contains('hidden');
-El.HAMBURGER.addEventListener('mousedown', () => {
+function toggleMenu() {
   expandMenu = !expandMenu;
   if (expandMenu) {
     El.CONTROLS.classList.remove('hidden');
   } else {
     El.CONTROLS.classList.add('hidden');
   }
-});
+}
+El.HAMBURGER.addEventListener('mousedown', toggleMenu);
 El.UPLOAD.addEventListener('change', function() {
   doRender(() => {
     if (this.files && this.files[0]) {
@@ -106,6 +107,10 @@ options.container.addEventListener('mousedown', event => {
 document.addEventListener('keydown', event => {
   doRender(() => {
     switch (event.key) {
+      case 'Escape':
+      case ' ':
+        toggleMenu();
+        break;
       case 'a':
         options.antialias = !options.antialias;
         El.ANTIALIAS.checked = options.antialias;
