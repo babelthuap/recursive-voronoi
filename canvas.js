@@ -18,6 +18,24 @@ export function createCanvas(width, height) {
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   console.timeEnd('createCanvas');
+
+  const setPixel = (pixelIndex, rgb) => {
+    const red = pixelIndex << 2;
+    data[red] = rgb[0];
+    data[red + 1] = rgb[1];
+    data[red + 2] = rgb[2];
+  };
+
+  const setRowHorizontal = (leftIndex, rightIndex, rgb) => {
+    for (let i = (leftIndex << 2); i < (rightIndex << 2) + 1; i += 4) {
+      data[i] = rgb[0];
+      data[i + 1] = rgb[1];
+      data[i + 2] = rgb[2];
+    }
+  };
+
+  const nullFunction = () => {};
+
   return canvas = {
     /** Returns the width of this canvas in pixels. */
     get width() {
@@ -63,20 +81,23 @@ export function createCanvas(width, height) {
     },
     /** Sets the given pixel to the given color. Does not repaint the canvas. */
     setPixel(pixelIndex, rgb) {
-      const red = pixelIndex << 2;
-      data[red] = rgb[0];
-      data[red + 1] = rgb[1];
-      data[red + 2] = rgb[2];
+      setPixel(pixelIndex, rgb);
     },
     /**
      * Sets all the pixels in [leftIndex, rightIndex] to the given color. Does
      * not repaint the canvas.
      */
     setRowHorizontal(leftIndex, rightIndex, rgb) {
-      for (let i = (leftIndex << 2); i < (rightIndex << 2) + 1; i += 4) {
-        data[i] = rgb[0];
-        data[i + 1] = rgb[1];
-        data[i + 2] = rgb[2];
+      setRowHorizontal(leftIndex, rightIndex, rgb);
+    },
+    /** Toggles the set* functions on or off. */
+    togglePixelSetters(on) {
+      if (on) {
+        this.setPixel = setPixel;
+        this.setRowHorizontal = setRowHorizontal;
+      } else {
+        this.setPixel = nullFunction;
+        this.setRowHorizontal = nullFunction;
       }
     },
   };

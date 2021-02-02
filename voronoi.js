@@ -6,11 +6,12 @@ import {distance, loadImagePixelData, rand} from './util.js';
 let tilesArray, pixelsArray, unsetId;
 
 /** Draws a random Voronoi diagram. */
-export async function drawRandomVoronoiDiagram(numTiles, {
+export async function drawRandomVoronoiDiagram({
   antialias = true,
   container = document.body,
   displayCapitals = false,
   imageUrl = null,
+  numTiles,
   width = window.innerWidth,
   height = window.innerHeight,
 }) {
@@ -150,9 +151,9 @@ function renderImage(state, options) {
           renderRecursive(
               {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
               {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
-          await postprocess(state, options);
-
           console.timeEnd('renderImage');
+
+          await postprocess(state, options);
           resolve();
         });
   });
@@ -195,6 +196,7 @@ function placeTiles(numTiles, width, height, hasImageUrl) {
  * while simultaneously coloring in those pixels.
  */
 function calculateAndRenderPixels(tiles, canvas) {
+  console.time('calculateAndRenderPixels');
   const width = canvas.width;
   const height = canvas.height;
   // Reset the pixels array
@@ -215,6 +217,7 @@ function calculateAndRenderPixels(tiles, canvas) {
   // Divide and conquer!
   const state = {allTiles: tiles, tilesSubset: new Set(tiles), canvas, pixels};
   renderRecursive(state, {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
+  console.timeEnd('calculateAndRenderPixels');
   return pixels;
 }
 

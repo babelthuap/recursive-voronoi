@@ -22,11 +22,11 @@ const options = {
   container: El.CANVAS_CONTAINER,
   displayCapitals: El.DISPLAY_CAPITALS.checked,
   imageUrl: null,
+  numTiles: parseInt(El.NUM_TILES.value),
 };
 
 // Hold on to the Voronoi diagram state in order to recolor it (etc.)
-let numTiles = parseInt(El.NUM_TILES.value);
-drawRandomVoronoiDiagram(numTiles, options).then(state => {
+drawRandomVoronoiDiagram(options).then(state => {
   /** Invokes fn if there's not already a render in progress. */
   const doRender = (() => {
     let renderInProgress = false;
@@ -37,12 +37,12 @@ drawRandomVoronoiDiagram(numTiles, options).then(state => {
       } else {
         renderInProgress = true;
         await fn();
+        renderInProgress = false;
         if (debouncedFn) {
           fn = debouncedFn;
           debouncedFn = null;
-          await fn();
+          await doRender(fn);
         }
-        renderInProgress = false;
       }
     };
   })();
@@ -72,7 +72,7 @@ drawRandomVoronoiDiagram(numTiles, options).then(state => {
     El.NUM_TILES.max = maxNumTiles;
     if (event.key === 'Enter') {
       doRender(async () => {
-        state = await drawRandomVoronoiDiagram(numTiles, options);
+        state = await drawRandomVoronoiDiagram(options);
       });
     } else {
       setTimeout(() => {
@@ -80,10 +80,10 @@ drawRandomVoronoiDiagram(numTiles, options).then(state => {
         if (value > maxNumTiles) {
           value = El.NUM_TILES.value = maxNumTiles;
         }
-        if (value > 0 && value !== numTiles) {
-          numTiles = value;
+        if (value > 0 && value !== options.numTiles) {
+          options.numTiles = value;
           doRender(async () => {
-            state = await drawRandomVoronoiDiagram(numTiles, options);
+            state = await drawRandomVoronoiDiagram(options);
           });
         }
       }, 0);
@@ -91,7 +91,7 @@ drawRandomVoronoiDiagram(numTiles, options).then(state => {
   });
   El.REGENERATE.addEventListener('mousedown', () => {
     doRender(async () => {
-      state = await drawRandomVoronoiDiagram(numTiles, options);
+      state = await drawRandomVoronoiDiagram(options);
     });
   });
   El.RECOLOR.addEventListener('mousedown', () => {
@@ -130,7 +130,7 @@ drawRandomVoronoiDiagram(numTiles, options).then(state => {
           event.metaKey) {
         await recolor(state, options);
       } else {
-        state = await drawRandomVoronoiDiagram(numTiles, options);
+        state = await drawRandomVoronoiDiagram(options);
       }
     });
   });
@@ -154,7 +154,7 @@ drawRandomVoronoiDiagram(numTiles, options).then(state => {
         break;
       case 's':
         doRender(async () => {
-          state = await drawRandomVoronoiDiagram(numTiles, options);
+          state = await drawRandomVoronoiDiagram(options);
         });
         break;
       case 't':
@@ -185,8 +185,11 @@ drawRandomVoronoiDiagram(numTiles, options).then(state => {
     const t = [];
     for (let i = 0; i < iterations; i++) {
       const s = performance.now();
-      state = await drawRandomVoronoiDiagram(
-          numTiles, {antialias: false, displayCapitals: false});
+      state = await drawRandomVoronoiDiagram({
+        antialias: false,
+        displayCapitals: false,
+        numTiles: options.numTiles,
+      });
       const d = performance.now() - s;
       t.push(d);
       await new Promise(resolve => requestAnimationFrame(resolve));
