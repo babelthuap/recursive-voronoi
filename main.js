@@ -4,6 +4,7 @@ const URL_PARAMS = new URLSearchParams(window.location.search);
 const TEST_MODE = URL_PARAMS.has('test');
 
 const El = {
+  ANIMATE: document.getElementById('animate'),
   ANTIALIAS: document.getElementById('antialias'),
   CANVAS_CONTAINER: document.getElementById('canvas'),
   CONTROLS: document.getElementById('controls'),
@@ -59,6 +60,50 @@ drawRandomVoronoiDiagram(options).then(state => {
   }
   El.HAMBURGER.addEventListener('mousedown', toggleMenu);
 
+  // Handle animate checkbox
+  let animate = false;
+  El.ANIMATE.addEventListener('change', () => {
+    animate = El.ANIMATE.checked;
+    if (animate && options.imageUrl) {
+      doRender(() => animateImage());
+    }
+  });
+
+  /**
+   * Renders an image with 1 to finalNumTiles tiles, increasing quadratically
+   * over durationMs milliseconds.
+   */
+  function animateImage(
+      finalNumTiles = 10_000,
+      durationMs = parseInt(URL_PARAMS.get('animate')) || 20_000) {
+    toggleMenu();
+    options.antialias = El.ANTIALIAS.checked = false;
+    const tilesPerMs2 = finalNumTiles / (durationMs * durationMs);
+    return new Promise(resolve => {
+      let start;
+      const tick = (t) => {
+        if (!start) start = t;
+        const progress = t - start;
+        options.numTiles =
+            Math.max(1, Math.floor((progress ** 2) * tilesPerMs2));
+        if (options.numTiles < finalNumTiles) {
+          drawRandomVoronoiDiagram(options).then(newState => {
+            state = newState;
+            requestAnimationFrame(tick);
+          });
+        } else {
+          options.numTiles = finalNumTiles;
+          drawRandomVoronoiDiagram(options).then(newState => {
+            state = newState;
+            El.NUM_TILES.value = options.numTiles;
+            resolve();
+          });
+        }
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
   // Handle image upload
   El.UPLOAD.addEventListener('change', () => {
     doRender(() => {
@@ -67,36 +112,11 @@ drawRandomVoronoiDiagram(options).then(state => {
       }
       return new Promise(resolve => {
         options.imageUrl = URL.createObjectURL(El.UPLOAD.files[0]);
-
-        // if no animate...
-        if (!URL_PARAMS.has('animate')) {
-          return rerender(state, options).then(resolve);
+        if (animate) {
+          animateImage().then(resolve);
+        } else {
+          rerender(state, options).then(resolve);
         }
-
-        // if animate...
-        toggleMenu();
-        options.antialias = false;
-        const finalNumTiles = 10_000;
-        const durationMs = parseInt(URL_PARAMS.get('animate')) || 20_000;
-        const tilesPerMs2 = finalNumTiles / (durationMs * durationMs);
-        let start;
-        const tick = (t) => {
-          if (!start) start = t;
-          const progress = t - start;
-          options.numTiles =
-              Math.max(1, Math.floor((progress ** 2) * tilesPerMs2));
-          if (options.numTiles < finalNumTiles) {
-            drawRandomVoronoiDiagram(options).then(newState => {
-              state = newState;
-              requestAnimationFrame(tick);
-            });
-          } else {
-            console.log('animation time:', progress);
-            resolve();
-          }
-        };
-
-        requestAnimationFrame(tick);
       });
     });
   });
@@ -154,7 +174,7 @@ drawRandomVoronoiDiagram(options).then(state => {
   });
 
   // Disable context menu so we can handle right click
-  options.container.addEventListener('contextmenu', event => {
+  El.CANVAS_CONTAINER.addEventListener('contextmenu', event => {
     event.preventDefault();
     // On mobile, however, "right click" won't trigger, so recolor here instead
     doRender(() => recolor(state, options));
@@ -162,7 +182,7 @@ drawRandomVoronoiDiagram(options).then(state => {
   });
 
   // Handle clicks: left click = randomize; right click = recolor
-  options.container.addEventListener('mousedown', event => {
+  El.CANVAS_CONTAINER.addEventListener('mousedown', event => {
     doRender(async () => {
       if (event.button !== 0 || event.altKey || event.ctrlKey ||
           event.metaKey) {
@@ -210,7 +230,7 @@ drawRandomVoronoiDiagram(options).then(state => {
   /** TEST RENDER TIME **/
   /**********************/
   if (TEST_MODE) {
-    test(Number(URL_PARAMS.get('test')) || 20);
+    doRender(() => test(Number(URL_PARAMS.get('test')) || 20));
   }
   async function test(iterations) {
     const disabledNames = ['log', 'time', 'timeEnd'];
