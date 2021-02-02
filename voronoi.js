@@ -3,7 +3,7 @@ import {createCanvas} from './canvas.js';
 import {distance, loadImagePixelData, rand} from './util.js';
 
 // reuse these across renders to reduce garbage collection time
-let tilesArray, colorsArray, pixelsArray, unsetId;
+let tilesArray, pixelsArray, unsetId;
 
 /** Draws a random Voronoi diagram. */
 export function drawRandomVoronoiDiagram(numTiles, {
@@ -17,9 +17,16 @@ export function drawRandomVoronoiDiagram(numTiles, {
   console.log('');
   console.time('drawRandomVoronoiDiagram_' + numTiles);
 
-  const tiles = placeTiles(numTiles, width, height);
+  const hasImageUrl = !!imageUrl;
+  const tiles = placeTiles(numTiles, width, height, hasImageUrl);
   const canvas = createCanvas(width, height);
+  if (hasImageUrl) {
+    canvas.togglePixelSetters(false);
+  }
   const pixels = calculateAndRenderPixels(tiles, canvas);
+  if (hasImageUrl) {
+    canvas.togglePixelSetters(true);
+  }
   canvas.attachToDom(container);
 
   const state = {tiles, canvas, pixels};
@@ -142,18 +149,15 @@ function renderImage(state, options) {
 }
 
 /** Places tile capitals randomly. */
-function placeTiles(numTiles, width, height) {
+function placeTiles(numTiles, width, height, hasImageUrl) {
   console.time('placeTiles');
 
-  if (!tilesArray || tilesArray.length !== numTiles) {
+  if (!tilesArray) {
     tilesArray = new Array(numTiles);
+  } else if (tilesArray.length !== numTiles) {
+    tilesArray.length = numTiles;
   }
   const tiles = tilesArray;
-
-  if (!colorsArray || colorsArray.length !== 3 * numTiles) {
-    colorsArray = new Uint8ClampedArray(3 * numTiles);
-  }
-  const randColors = crypto.getRandomValues(colorsArray);
 
   const capitals = new Set();
   for (let i = 0; i < numTiles; ++i) {
@@ -166,7 +170,9 @@ function placeTiles(numTiles, width, height) {
       pixelIndex = x + width * y;
     }
     capitals.add(pixelIndex);
-    const color = randColors.subarray(3 * i, 3 * (i + 1));
+    const color = hasImageUrl ?
+        new Uint8ClampedArray(3) :
+        crypto.getRandomValues(new Uint8ClampedArray(3));
     tiles[i] = {i, x, y, color};
   }
 
@@ -184,11 +190,11 @@ function calculateAndRenderPixels(tiles, canvas) {
   const height = canvas.height;
   // Reset the pixels array
   if (pixelsArray === undefined || pixelsArray.length !== width * height ||
-      (tiles.length >= 0xff && pixelsArray.BYTES_PER_ELEMENT === 1)) {
-    pixelsArray = tiles.length < 0xff ? new Uint8Array(width * height) :
-                                        new Uint16Array(width * height);
+      getRequiredBytes(tiles.length) !== pixelsArray.BYTES_PER_ELEMENT) {
+    pixelsArray = createPixelsArray(tiles.length, width * height);
+    console.log('pixelsArray:', pixelsArray);
   }
-  unsetId = tiles.length < 0xff ? 0xff : 0xffff;
+  unsetId = getUnsetId(pixelsArray);
   const pixels = pixelsArray.fill(unsetId);
 
   // seed pixels array by marking each capital; this helps when numTiles is
@@ -203,6 +209,30 @@ function calculateAndRenderPixels(tiles, canvas) {
   renderRecursive(state, {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
   console.timeEnd('calculateAndRenderPixels');
   return pixels;
+}
+
+function getRequiredBytes(numTiles) {
+  if (numTiles < 2 ** 8) {
+    return 1;
+  } else {
+    return numTiles < 2 ** 16 ? 2 : 4;
+  }
+}
+
+function createPixelsArray(numTiles, numPixels) {
+  switch (getRequiredBytes(numTiles)) {
+    case 1: return new Uint8Array(numPixels);
+    case 2: return new Uint16Array(numPixels);
+    case 4: return new Uint32Array(numPixels);
+  }
+}
+
+function getUnsetId(pixelsArray) {
+  switch (pixelsArray.BYTES_PER_ELEMENT) {
+    case 1: return 0xff;
+    case 2: return 0xffff;
+    case 4: return 0xffffffff;
+  }
 }
 
 // TODO: optimize this for various combinations of parameters

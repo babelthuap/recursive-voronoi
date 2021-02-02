@@ -59,15 +59,19 @@ El.UPLOAD.addEventListener('change', function() {
     }
   });
 });
+El.NUM_TILES.max = window.innerWidth * window.innerHeight >> 4;
 El.NUM_TILES.addEventListener('keydown', event => {
+  const maxNumTiles = window.innerWidth * window.innerHeight >> 4;
+  El.NUM_TILES.max = maxNumTiles;
   if (event.key === 'Enter') {
     doRender(() => state = drawRandomVoronoiDiagram(numTiles, options));
   } else {
     setTimeout(() => {
-      const value = parseInt(El.NUM_TILES.value);
-      // note: numTiles is currently limited by the way we generate all the
-      // random colors at once in colorsArray
-      if (0 < value && value <= 21845 && value !== numTiles) {
+      let value = parseInt(El.NUM_TILES.value);
+      if (value > maxNumTiles) {
+        value = El.NUM_TILES.value = maxNumTiles;
+      }
+      if (value > 0 && value !== numTiles) {
         numTiles = value;
         doRender(() => state = drawRandomVoronoiDiagram(numTiles, options));
       }
