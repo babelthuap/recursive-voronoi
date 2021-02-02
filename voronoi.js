@@ -6,7 +6,7 @@ import {distance, loadImagePixelData, rand} from './util.js';
 let tilesArray, pixelsArray, unsetId;
 
 /** Draws a random Voronoi diagram. */
-export function drawRandomVoronoiDiagram(numTiles, {
+export async function drawRandomVoronoiDiagram(numTiles, {
   antialias = true,
   container = document.body,
   displayCapitals = false,
@@ -31,9 +31,9 @@ export function drawRandomVoronoiDiagram(numTiles, {
 
   const state = {tiles, canvas, pixels};
   if (imageUrl) {
-    renderImage(state, {antialias, displayCapitals, imageUrl});
+    await renderImage(state, {antialias, displayCapitals, imageUrl});
   } else {
-    postprocess(state, {antialias, displayCapitals, imageUrl});
+    await postprocess(state, {antialias, displayCapitals, imageUrl});
   }
 
   console.timeEnd('drawRandomVoronoiDiagram_' + numTiles);
@@ -41,7 +41,7 @@ export function drawRandomVoronoiDiagram(numTiles, {
 }
 
 /** Reassigns random colors to each tile and then re-renders. */
-export function recolor(state, options) {
+export async function recolor(state, options) {
   console.time('recolor');
   options.imageUrl = null;
   for (const tile of state.tiles) {
@@ -49,20 +49,20 @@ export function recolor(state, options) {
     tile.color[1] = rand(256);
     tile.color[2] = rand(256);
   }
-  rerender(state, options);
+  await rerender(state, options);
   console.timeEnd('recolor');
 }
 
 /** Rerenders given an existing state. */
-export function rerender(state, options) {
+export async function rerender(state, options) {
   const {tiles, canvas, pixels} = state;
   renderRecursive(
       {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
       {minX: 0, minY: 0, maxX: canvas.width - 1, maxY: canvas.height - 1});
   if (options.imageUrl) {
-    renderImage(state, options);
+    await renderImage(state, options);
   } else {
-    postprocess(state, options);
+    await postprocess(state, options);
   }
 }
 
@@ -76,15 +76,20 @@ function postprocess(state, {antialias, displayCapitals}) {
     drawCapitals(state);
   }
   if (antialias) {
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        renderAntialiasedBorders(state);
-        state.canvas.repaint();
-        if (displayCapitals) {
-          drawCapitals(state);
-        }
-      });
-    }, 0);
+    return new Promise(resolve => {
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          renderAntialiasedBorders(state);
+          state.canvas.repaint();
+          if (displayCapitals) {
+            drawCapitals(state);
+          }
+          resolve();
+        });
+      }, 0);
+    });
+  } else {
+    return Promise.resolve();
   }
 }
 
@@ -114,37 +119,42 @@ function renderImage(state, options) {
   const width = canvas.width;
   const height = canvas.height;
 
-  loadImagePixelData(options.imageUrl, width, height).then(imgPixelData => {
-    // determine new tile colors by averaging the image color over each tile
-    const newTileColors = tiles.map(tile => {
-      return {count: 0, rgb: new Uint32Array(3)};
-    });
-    for (let pixelIndex = 0; pixelIndex < pixels.length; ++pixelIndex) {
-      const tileIndex = pixels[pixelIndex];
-      const newColor = newTileColors[tileIndex];
-      newColor.count += 1;
-      const imgR = pixelIndex << 2;
-      newColor.rgb[0] += imgPixelData[imgR];
-      newColor.rgb[1] += imgPixelData[imgR + 1];
-      newColor.rgb[2] += imgPixelData[imgR + 2];
-    }
+  return new Promise(resolve => {
+    loadImagePixelData(options.imageUrl, width, height)
+        .then(async (imgPixelData) => {
+          // determine new tile colors by averaging the image color over each
+          // tile
+          const newTileColors = tiles.map(tile => {
+            return {count: 0, rgb: new Uint32Array(3)};
+          });
+          for (let pixelIndex = 0; pixelIndex < pixels.length; ++pixelIndex) {
+            const tileIndex = pixels[pixelIndex];
+            const newColor = newTileColors[tileIndex];
+            newColor.count += 1;
+            const imgR = pixelIndex << 2;
+            newColor.rgb[0] += imgPixelData[imgR];
+            newColor.rgb[1] += imgPixelData[imgR + 1];
+            newColor.rgb[2] += imgPixelData[imgR + 2];
+          }
 
-    // recolor
-    for (let tileIndex = 0; tileIndex < tiles.length; ++tileIndex) {
-      const tile = tiles[tileIndex];
-      const newColor = newTileColors[tileIndex];
-      tile.color[0] = newColor.rgb[0] / newColor.count;
-      tile.color[1] = newColor.rgb[1] / newColor.count;
-      tile.color[2] = newColor.rgb[2] / newColor.count;
-    }
+          // recolor
+          for (let tileIndex = 0; tileIndex < tiles.length; ++tileIndex) {
+            const tile = tiles[tileIndex];
+            const newColor = newTileColors[tileIndex];
+            tile.color[0] = newColor.rgb[0] / newColor.count;
+            tile.color[1] = newColor.rgb[1] / newColor.count;
+            tile.color[2] = newColor.rgb[2] / newColor.count;
+          }
 
-    // re-render
-    renderRecursive(
-        {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
-        {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
-    postprocess(state, options);
+          // re-render
+          renderRecursive(
+              {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
+              {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
+          await postprocess(state, options);
 
-    console.timeEnd('renderImage');
+          console.timeEnd('renderImage');
+          resolve();
+        });
   });
 }
 
@@ -185,7 +195,6 @@ function placeTiles(numTiles, width, height, hasImageUrl) {
  * while simultaneously coloring in those pixels.
  */
 function calculateAndRenderPixels(tiles, canvas) {
-  console.time('calculateAndRenderPixels');
   const width = canvas.width;
   const height = canvas.height;
   // Reset the pixels array
@@ -206,7 +215,6 @@ function calculateAndRenderPixels(tiles, canvas) {
   // Divide and conquer!
   const state = {allTiles: tiles, tilesSubset: new Set(tiles), canvas, pixels};
   renderRecursive(state, {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
-  console.timeEnd('calculateAndRenderPixels');
   return pixels;
 }
 
