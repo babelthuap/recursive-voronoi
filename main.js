@@ -58,14 +58,50 @@ drawRandomVoronoiDiagram(options).then(state => {
     }
   }
   El.HAMBURGER.addEventListener('mousedown', toggleMenu);
-  El.UPLOAD.addEventListener('change', function() {
+
+  // Handle image upload
+  El.UPLOAD.addEventListener('change', () => {
     doRender(() => {
-      if (this.files && this.files[0]) {
-        options.imageUrl = URL.createObjectURL(this.files[0]);
-        return rerender(state, options);
+      if (!El.UPLOAD.files || !El.UPLOAD.files[0]) {
+        return;
       }
+      return new Promise(resolve => {
+        options.imageUrl = URL.createObjectURL(El.UPLOAD.files[0]);
+
+        // if no animate...
+        if (!URL_PARAMS.has('animate')) {
+          return rerender(state, options).then(resolve);
+        }
+
+        // if animate...
+        toggleMenu();
+        options.antialias = false;
+        const finalNumTiles = 10_000;
+        const durationMs = parseInt(URL_PARAMS.get('animate')) || 20_000;
+        const tilesPerMs2 = finalNumTiles / (durationMs * durationMs);
+        let start;
+        const tick = (t) => {
+          if (!start) start = t;
+          const progress = t - start;
+          options.numTiles =
+              Math.max(1, Math.floor((progress ** 2) * tilesPerMs2));
+          if (options.numTiles < finalNumTiles) {
+            drawRandomVoronoiDiagram(options).then(newState => {
+              state = newState;
+              requestAnimationFrame(tick);
+            });
+          } else {
+            console.log('animation time:', progress);
+            resolve();
+          }
+        };
+
+        requestAnimationFrame(tick);
+      });
     });
   });
+
+  // Handle numTiles input
   El.NUM_TILES.max = window.innerWidth * window.innerHeight >> 4;
   El.NUM_TILES.addEventListener('keydown', event => {
     const maxNumTiles = window.innerWidth * window.innerHeight >> 4;
@@ -89,6 +125,8 @@ drawRandomVoronoiDiagram(options).then(state => {
       }, 0);
     }
   });
+
+  // Other inputs
   El.REGENERATE.addEventListener('mousedown', () => {
     doRender(async () => {
       state = await drawRandomVoronoiDiagram(options);
