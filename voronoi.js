@@ -192,7 +192,6 @@ function calculateAndRenderPixels(tiles, canvas) {
   if (pixelsArray === undefined || pixelsArray.length !== width * height ||
       getRequiredBytes(tiles.length) !== pixelsArray.BYTES_PER_ELEMENT) {
     pixelsArray = createPixelsArray(tiles.length, width * height);
-    console.log('pixelsArray:', pixelsArray);
   }
   unsetId = getUnsetId(pixelsArray);
   const pixels = pixelsArray.fill(unsetId);
