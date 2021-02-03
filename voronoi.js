@@ -467,10 +467,8 @@ function getBoundaryTilesHorizontal(
   let left = minX;
 
   while (left <= maxX) {
-    const leftPixelIndex = left + rowOffset;
-    const leftTileIndex = calculatePixel(left, y, leftPixelIndex, state);
-    const leftTile = allTiles[leftTileIndex];
-    boundaryTiles.add(leftTile);
+    const leftTileIndex = calculatePixel(left, y, left + rowOffset, state);
+    boundaryTiles.add(allTiles[leftTileIndex]);
 
     // fill in un-colored pixels: starting at left, search for the border with
     // next color in this row, then fill the pixels in between
@@ -492,13 +490,6 @@ function getBoundaryTilesHorizontal(
                    leftTileIndex ||
                calculatePixel(right + 1, y, rightPixelIndex + 1, state) ===
                    leftTileIndex);
-    }
-
-    // fill line of same-color pixels
-    canvas.setRowHorizontal(leftPixelIndex, rightPixelIndex, leftTile.color);
-    for (let pixelIndex = leftPixelIndex; pixelIndex <= rightPixelIndex;
-         ++pixelIndex) {
-      pixels[pixelIndex] = leftTileIndex;
     }
 
     left = right + 1;
