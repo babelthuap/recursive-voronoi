@@ -83,22 +83,22 @@ drawRandomVoronoiDiagram(options).then(state => {
   })
 
   /**
-   * Renders an image with 1 to finalNumTiles tiles, increasing quadratically
-   * over durationMs milliseconds.
+   * Renders an image with 1 to `finalNumTiles` tiles, increasing exponentially
+   * over `duration` seconds.
    */
   function animateImage(
       duration = parseInt(El.ANIMATION_SECONDS.value) || 20,
       finalNumTiles = 10_000) {
     toggleMenu();
     options.antialias = El.ANTIALIAS.checked = false;
-    const tilesPerMs2 = finalNumTiles / (1e6 * duration * duration);
+    const lognPerMs = Math.log2(finalNumTiles) / (duration * 1000);
     return new Promise(resolve => {
       let start;
       const tick = (t) => {
         if (!start) start = t;
         const progress = t - start;
         options.numTiles =
-            Math.max(1, Math.floor((progress ** 2) * tilesPerMs2));
+            Math.max(1, Math.floor(Math.pow(2, 1 + progress * lognPerMs)));
         if (options.numTiles < finalNumTiles) {
           El.NUM_TILES.value = options.numTiles;
           drawRandomVoronoiDiagram(options).then(newState => {
