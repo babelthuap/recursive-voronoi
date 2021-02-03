@@ -41,6 +41,10 @@ body {
   justify-content: center;
   margin: 0 16px;
   padding: 4px 8px;
+  /* Enable scrolling for short screens */
+  max-height: calc(100vh - 95px);
+  overflow: scroll;
+  place-content: baseline;
 }
 
 #controls > * {
@@ -57,7 +61,7 @@ body {
   width: 256px;
 }
 
-#numTiles {
+.control-row input[type="number"] {
   font-size: 16px;
   font-family: Courier, monospace;
   width: 72px;

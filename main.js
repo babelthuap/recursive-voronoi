@@ -5,6 +5,7 @@ const TEST_MODE = URL_PARAMS.has('test');
 
 const El = {
   ANIMATE: document.getElementById('animate'),
+  ANIMATION_SECONDS: document.getElementById('animationSeconds'),
   ANTIALIAS: document.getElementById('antialias'),
   CANVAS_CONTAINER: document.getElementById('canvas'),
   CONTROLS: document.getElementById('controls'),
@@ -60,25 +61,37 @@ drawRandomVoronoiDiagram(options).then(state => {
   }
   El.HAMBURGER.addEventListener('mousedown', toggleMenu);
 
-  // Handle animate checkbox
+  // Handle animation inputs
   let animate = false;
   El.ANIMATE.addEventListener('change', () => {
     animate = El.ANIMATE.checked;
-    if (animate && options.imageUrl) {
-      doRender(() => animateImage());
+    if (animate) {
+      El.ANIMATION_SECONDS.parentElement.style.display = 'block';
+      El.ANIMATION_SECONDS.focus();
+    } else {
+      El.ANIMATION_SECONDS.parentElement.style.display = 'none';
     }
   });
+  El.ANIMATION_SECONDS.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      if (options.imageUrl) {
+        doRender(() => animateImage());
+      } else {
+        El.UPLOAD.click();
+      }
+    }
+  })
 
   /**
    * Renders an image with 1 to finalNumTiles tiles, increasing quadratically
    * over durationMs milliseconds.
    */
   function animateImage(
-      finalNumTiles = 10_000,
-      durationMs = parseInt(URL_PARAMS.get('animate')) || 20_000) {
+      duration = parseInt(El.ANIMATION_SECONDS.value) || 20,
+      finalNumTiles = 10_000) {
     toggleMenu();
     options.antialias = El.ANTIALIAS.checked = false;
-    const tilesPerMs2 = finalNumTiles / (durationMs * durationMs);
+    const tilesPerMs2 = finalNumTiles / (1e6 * duration * duration);
     return new Promise(resolve => {
       let start;
       const tick = (t) => {
@@ -87,15 +100,16 @@ drawRandomVoronoiDiagram(options).then(state => {
         options.numTiles =
             Math.max(1, Math.floor((progress ** 2) * tilesPerMs2));
         if (options.numTiles < finalNumTiles) {
+          El.NUM_TILES.value = options.numTiles;
           drawRandomVoronoiDiagram(options).then(newState => {
             state = newState;
             requestAnimationFrame(tick);
           });
         } else {
           options.numTiles = finalNumTiles;
+          El.NUM_TILES.value = options.numTiles;
           drawRandomVoronoiDiagram(options).then(newState => {
             state = newState;
-            El.NUM_TILES.value = options.numTiles;
             resolve();
           });
         }
@@ -126,7 +140,9 @@ drawRandomVoronoiDiagram(options).then(state => {
   El.NUM_TILES.addEventListener('keydown', event => {
     const maxNumTiles = window.innerWidth * window.innerHeight >> 4;
     El.NUM_TILES.max = maxNumTiles;
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter') { {
+
+    }
       doRender(async () => {
         state = await drawRandomVoronoiDiagram(options);
       });
