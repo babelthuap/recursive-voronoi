@@ -140,9 +140,7 @@ drawRandomVoronoiDiagram(options).then(state => {
   El.NUM_TILES.addEventListener('keydown', event => {
     const maxNumTiles = window.innerWidth * window.innerHeight >> 4;
     El.NUM_TILES.max = maxNumTiles;
-    if (event.key === 'Enter') { {
-
-    }
+    if (event.key === 'Enter') {
       doRender(async () => {
         state = await drawRandomVoronoiDiagram(options);
       });
