@@ -4,7 +4,7 @@ let canvas;
 /**
  * Creates a canvas element and returns a simple interface for drawing on it.
  */
-export function createCanvas(width, height) {
+export function createCanvas(width, height, container) {
   if (canvas && canvas.width === width && canvas.height === height) {
     return canvas;
   }
@@ -13,11 +13,17 @@ export function createCanvas(width, height) {
   el.width = width;
   el.height = height;
   const ctx = el.getContext('2d');
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, width, height);
+  // ctx.fillStyle = '#000';
+  // ctx.fillRect(0, 0, width, height);
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   console.timeEnd('createCanvas');
+
+  // remove any other elements from the container and attach this canvas instead
+  if (container.children[0] !== el) {
+    [...container.children].forEach(child => child.remove());
+    container.appendChild(el);
+  }
 
   const setPixel = (pixelIndex, rgb) => {
     const red = pixelIndex << 2;
@@ -36,6 +42,8 @@ export function createCanvas(width, height) {
 
   const nullFunction = () => {};
 
+  let count = 0;
+
   return canvas = {
     /** Returns the width of this canvas in pixels. */
     get width() {
@@ -45,15 +53,18 @@ export function createCanvas(width, height) {
     get height() {
       return height;
     },
-    /**
-     * Removes any other elements from the given container and attaches this
-     * canvas instead.
-     */
-    attachToDom(container) {
-      if (container.children[0] !== el) {
-        [...container.children].forEach(child => child.remove());
-        container.appendChild(el);
+    /** Reset the canvas to all black */
+    reset() {
+      console.time('reset');
+      count = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = 0;
+        data[i + 1] = 0;
+        data[i + 2] = 0;
+        data[i + 3] = 0xff;
       }
+      console.timeEnd('reset');
+      return this;
     },
     /** Pass-through */
     toDataURL(...args) {
@@ -81,14 +92,25 @@ export function createCanvas(width, height) {
     },
     /** Sets the given pixel to the given color. Does not repaint the canvas. */
     setPixel(pixelIndex, rgb) {
+      count += 1;
       setPixel(pixelIndex, rgb);
     },
     /**
      * Sets all the pixels in [leftIndex, rightIndex] to the given color. Does
      * not repaint the canvas.
      */
-    setRowHorizontal(leftIndex, rightIndex, rgb) {
+    async setRowHorizontal(leftIndex, rightIndex, rgb) {
+      count += (rightIndex - leftIndex + 1);
       setRowHorizontal(leftIndex, rightIndex, rgb);
+      if (count > 5000) {
+        count = 0;
+        await new Promise(resolve => {
+          requestAnimationFrame(() => {
+            canvas.repaint();
+            resolve();
+          });
+        });
+      }
     },
     /** Toggles the set* functions on or off. */
     togglePixelSetters(on) {
