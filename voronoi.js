@@ -22,6 +22,8 @@ export async function drawRandomVoronoiDiagram({
   const tiles = placeTiles(numTiles, width, height, hasImageUrl);
   const canvas = createCanvas(width, height);
   if (hasImageUrl) {
+    // if there's an image, we can save some time by not setting pixels during
+    // the initial render (since they're set during renderImage anyway)
     canvas.togglePixelSetters(false);
   }
   const pixels = calculateAndRenderPixels(tiles, canvas);
