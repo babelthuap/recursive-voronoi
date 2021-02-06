@@ -120,43 +120,40 @@ function renderImage(state, options) {
   const width = canvas.width;
   const height = canvas.height;
 
-  return new Promise(resolve => {
-    loadImagePixelData(options.imageUrl, width, height)
-        .then(async (imgPixelData) => {
-          // determine new tile colors by averaging the image color over each
-          // tile
-          const newTileColors = tiles.map(tile => {
-            return {count: 0, rgb: new Uint32Array(3)};
-          });
-          for (let pixelIndex = 0; pixelIndex < pixels.length; ++pixelIndex) {
-            const tileIndex = pixels[pixelIndex];
-            const newColor = newTileColors[tileIndex];
-            newColor.count += 1;
-            const imgR = pixelIndex << 2;
-            newColor.rgb[0] += imgPixelData[imgR];
-            newColor.rgb[1] += imgPixelData[imgR + 1];
-            newColor.rgb[2] += imgPixelData[imgR + 2];
-          }
-
-          // recolor
-          for (let tileIndex = 0; tileIndex < tiles.length; ++tileIndex) {
-            const tile = tiles[tileIndex];
-            const newColor = newTileColors[tileIndex];
-            tile.color[0] = newColor.rgb[0] / newColor.count;
-            tile.color[1] = newColor.rgb[1] / newColor.count;
-            tile.color[2] = newColor.rgb[2] / newColor.count;
-          }
-
-          // re-render
-          renderRecursive(
-              {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
-              {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
-          console.timeEnd('renderImage');
-
-          await postprocess(state, options);
-          resolve();
+  return loadImagePixelData(options.imageUrl, width, height)
+      .then(async (imgPixelData) => {
+        // determine new tile colors by averaging the image color over each
+        // tile
+        const newTileColors = tiles.map(tile => {
+          return {count: 0, rgb: new Uint32Array(3)};
         });
-  });
+        for (let pixelIndex = 0; pixelIndex < pixels.length; ++pixelIndex) {
+          const tileIndex = pixels[pixelIndex];
+          const newColor = newTileColors[tileIndex];
+          newColor.count += 1;
+          const imgR = pixelIndex << 2;
+          newColor.rgb[0] += imgPixelData[imgR];
+          newColor.rgb[1] += imgPixelData[imgR + 1];
+          newColor.rgb[2] += imgPixelData[imgR + 2];
+        }
+
+        // recolor
+        for (let tileIndex = 0; tileIndex < tiles.length; ++tileIndex) {
+          const tile = tiles[tileIndex];
+          const newColor = newTileColors[tileIndex];
+          tile.color[0] = newColor.rgb[0] / newColor.count;
+          tile.color[1] = newColor.rgb[1] / newColor.count;
+          tile.color[2] = newColor.rgb[2] / newColor.count;
+        }
+
+        // re-render
+        renderRecursive(
+            {allTiles: tiles, tilesSubset: tiles, canvas, pixels},
+            {minX: 0, minY: 0, maxX: width - 1, maxY: height - 1});
+        console.timeEnd('renderImage');
+
+        return postprocess(state, options);
+      });
 }
 
 /** Places tile capitals randomly. */
