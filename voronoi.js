@@ -28,6 +28,7 @@ export async function drawRandomVoronoiDiagram({
   }
   const pixels = calculateAndRenderPixels(tiles, canvas);
   if (hasImageUrl) {
+    // re-enable drawing
     canvas.togglePixelSetters(true);
   }
   canvas.attachToDom(container);
